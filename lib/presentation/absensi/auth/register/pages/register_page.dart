@@ -1,6 +1,7 @@
+import 'package:absensi_maps/presentation/absensi/auth/register/pages/registration_dropdown_data.dart';
 import 'package:flutter/material.dart';
-import 'package:absensi_maps/utils/app_colors.dart'; // Pastikan ini sudah ada dan berisi warna custom Anda
-// import 'package:absensi_maps/presentation/absensi/auth/login/pages/login_page.dart'; // Untuk navigasi kembali ke Login
+import 'package:absensi_maps/utils/app_colors.dart';
+import 'package:absensi_maps/presentation/absensi/auth/register/services/register_service.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -10,13 +11,20 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  // Hanya controller untuk UI, tanpa validasi atau integrasiNotifier saat ini
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _batchIdController = TextEditingController();
 
-  bool _obscureText = true; // State lokal untuk visibility password
+  String? _selectedTrainingId;
+  String? _selectedJenisKelaminDisplay;
+  String? _selectedJenisKelaminValue;
+
+  final RegisterService _registerService = RegisterService();
+
+  bool _obscureText = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -24,6 +32,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _batchIdController.dispose();
     super.dispose();
   }
 
@@ -33,16 +42,64 @@ class _RegisterPageState extends State<RegisterPage> {
     });
   }
 
-  // Fungsi placeholder untuk tombol Register, hanya menampilkan snackbar
-  void _onRegisterButtonPressed() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Register ditekan! (UI saja) Nama: ${_nameController.text}',
+  void _onRegisterButtonPressed() async {
+    final String name = _nameController.text.trim();
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text.trim();
+    final String batchId = _batchIdController.text.trim();
+
+    if (name.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        batchId.isEmpty ||
+        _selectedTrainingId == null ||
+        _selectedJenisKelaminValue == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mohon lengkapi semua kolom yang wajib diisi.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
         ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final registrationResponse = await _registerService.registerUser(
+        name,
+        email,
+        password,
+        batchId,
+        _selectedTrainingId!,
+        _selectedJenisKelaminValue!,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(registrationResponse.message),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Registrasi gagal: ${e.toString().replaceFirst('Exception: ', '')}',
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -51,189 +108,234 @@ class _RegisterPageState extends State<RegisterPage> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      backgroundColor:
-          AppColors.loginBackgroundColor, // Warna latar belakang abu-abu gelap
+      backgroundColor: AppColors.loginBackgroundColor,
       body: Stack(
         children: [
-          // Bagian kuning di bawah, dengan bentuk melengkung
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: Container(
-              height: screenHeight * 0.4, // Ketinggian relatif
+              height: screenHeight * 0.4,
               decoration: BoxDecoration(
-                color: AppColors.loginAccentColor, // Warna kuning cerah
+                color: AppColors.loginAccentColor,
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(
-                    screenWidth * 0.2,
-                  ), // Kurva di kiri atas
-                  topRight: Radius.circular(
-                    screenWidth * 0.2,
-                  ), // Kurva di kanan atas
+                  topLeft: Radius.circular(screenWidth * 0.1),
+                  topRight: Radius.circular(screenWidth * 0.1),
                 ),
               ),
             ),
           ),
-          // Konten Utama: Teks "Welcome Back" dan Card Form Register
           Positioned.fill(
             child: SingleChildScrollView(
-              // Agar bisa di-scroll jika konten melebihi layar (misal keyboard muncul)
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // Spacer untuk posisi teks "Welcome Back" agar tidak terlalu dekat atas
                   SizedBox(height: screenHeight * 0.15),
-                  // Teks "Welcome Back" dan "Register to your account"
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Padding(
-                      padding: const EdgeInsets.only(
-                        left: 20.0,
-                      ), // Padding horizontal sesuai gambar
+                      padding: const EdgeInsets.only(left: 20.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Welcome Back', // Sesuai dengan desain gambar
+                            'Buat Akun Baru',
                             style: Theme.of(
                               context,
                             ).textTheme.headlineMedium?.copyWith(
-                              color: AppColors.textLight, // Warna putih
+                              color: AppColors.textLight,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Register to your account', // Sesuai dengan desain gambar
+                            'Daftar untuk membuat akun Anda',
                             style: Theme.of(
                               context,
                             ).textTheme.titleMedium?.copyWith(
-                              color: AppColors.textLight.withOpacity(
-                                0.8,
-                              ), // Warna putih transparan
+                              color: AppColors.textLight.withOpacity(0.8),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  // Jarak antara teks dan card
                   SizedBox(height: screenHeight * 0.05),
-                  // Card untuk form registrasi
                   Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16.0),
+                    margin: const EdgeInsets.symmetric(horizontal: 5.0),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        20,
-                      ), // Sudut membulat pada card
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    color: AppColors.loginCardColor, // Warna putih untuk card
-                    elevation: 5, // Sedikit bayangan untuk efek 3D
+                    color: AppColors.loginCardColor,
+                    elevation: 3,
                     child: Padding(
-                      padding: const EdgeInsets.all(
-                        24.0,
-                      ), // Padding di dalam card
+                      padding: const EdgeInsets.all(24.0),
                       child: Column(
-                        mainAxisSize:
-                            MainAxisSize.min, // Agar card menyesuaikan konten
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          // TextFormField untuk Nama
                           TextFormField(
                             controller: _nameController,
                             decoration: const InputDecoration(
                               labelText: 'Nama',
-                              border: OutlineInputBorder(), // Border kotak
-                              // Prefix icon tidak ada di gambar untuk Nama, No. Hp, Email
+                              border: OutlineInputBorder(),
                             ),
                           ),
-                          const SizedBox(
-                            height: 20,
-                          ), // Jarak antar TextFormField
-                          // TextFormField untuk No. Hp
+                          const SizedBox(height: 20),
                           TextFormField(
                             controller: _phoneController,
-                            keyboardType:
-                                TextInputType
-                                    .phone, // Keyboard khusus nomor telepon
+                            keyboardType: TextInputType.phone,
                             decoration: const InputDecoration(
                               labelText: 'No. Hp',
                               border: OutlineInputBorder(),
                             ),
                           ),
                           const SizedBox(height: 20),
-                          // TextFormField untuk Email
                           TextFormField(
                             controller: _emailController,
-                            keyboardType:
-                                TextInputType
-                                    .emailAddress, // Keyboard khusus email
+                            keyboardType: TextInputType.emailAddress,
                             decoration: const InputDecoration(
                               labelText: 'Email',
                               border: OutlineInputBorder(),
                             ),
                           ),
                           const SizedBox(height: 20),
-                          // TextFormField untuk Password
                           TextFormField(
                             controller: _passwordController,
-                            obscureText:
-                                _obscureText, // Kontrol visibility teks password
+                            obscureText: _obscureText,
                             decoration: InputDecoration(
                               labelText: 'Password',
                               border: const OutlineInputBorder(),
-                              // Di gambar ada icon mata di suffix
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscureText
                                       ? Icons.visibility_off
                                       : Icons.visibility,
-                                  color: Colors.grey, // Warna icon mata
                                 ),
-                                onPressed:
-                                    _togglePasswordVisibility, // Toggle visibility
+                                onPressed: _togglePasswordVisibility,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 30), // Jarak ke tombol
-                          // Tombol Register (di gambar tulisannya "Login", ini perlu disesuaikan)
+                          const SizedBox(height: 20),
+                          // --- Input untuk BATCH ID (sebagai TextField) ---
+                          TextFormField(
+                            controller: _batchIdController,
+                            decoration: const InputDecoration(
+                              labelText: 'ID Batch',
+                              hintText: 'Masukkan ID Batch',
+                              border: OutlineInputBorder(),
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 20),
+                          // --- Dropdown untuk TRAINING_ID ---
+                          DropdownButtonFormField<String>(
+                            decoration: const InputDecoration(
+                              labelText: 'Jurusan/Training',
+                              border: OutlineInputBorder(),
+                            ),
+                            value: _selectedTrainingId,
+                            hint: const Text('Pilih Jurusan/Training'),
+                            // PENTING: selectedItemBuilder untuk teks yang ditampilkan di field tertutup
+                            selectedItemBuilder: (BuildContext context) {
+                              return kTrainingOptions.map((training) {
+                                return Text(
+                                  training.title,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                );
+                              }).toList();
+                            },
+                            items:
+                                kTrainingOptions.map((training) {
+                                  return DropdownMenuItem<String>(
+                                    value: training.id.toString(),
+                                    // Untuk item di daftar menu yang terbuka, cukup Text saja
+                                    // Tidak perlu Row atau Expanded di sini
+                                    child: Text(
+                                      training.title,
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  );
+                                }).toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                _selectedTrainingId = newValue;
+                              });
+                            },
+                            validator:
+                                (value) =>
+                                    value == null
+                                        ? 'Jurusan wajib dipilih.'
+                                        : null,
+                          ),
+                          const SizedBox(height: 20),
+                          // --- Dropdown untuk JENIS_KELAMIN ---
+                          DropdownButtonFormField<String>(
+                            decoration: const InputDecoration(
+                              labelText: 'Jenis Kelamin',
+                              border: OutlineInputBorder(),
+                            ),
+                            value: _selectedJenisKelaminDisplay,
+                            hint: const Text('Pilih Jenis Kelamin'),
+                            items:
+                                kJenisKelaminOptions.map((option) {
+                                  return DropdownMenuItem<String>(
+                                    value: option['display'],
+                                    child: Text(option['display']!),
+                                  );
+                                }).toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                _selectedJenisKelaminDisplay = newValue;
+                                _selectedJenisKelaminValue =
+                                    kJenisKelaminOptions.firstWhere(
+                                      (opt) => opt['display'] == newValue,
+                                    )['value'];
+                              });
+                            },
+                            validator:
+                                (value) =>
+                                    value == null
+                                        ? 'Jenis kelamin wajib dipilih.'
+                                        : null,
+                          ),
+                          const SizedBox(height: 30),
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: _onRegisterButtonPressed,
+                              onPressed:
+                                  _isLoading ? null : _onRegisterButtonPressed,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    AppColors
-                                        .loginButtonColor, // Warna biru tombol
-                                foregroundColor:
-                                    AppColors.textLight, // Warna teks putih
+                                backgroundColor: AppColors.loginButtonColor,
+                                foregroundColor: AppColors.textLight,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 15,
                                 ),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    10,
-                                  ), // Sudut tombol
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child: const Text(
-                                'Register', // Di gambar tertulis 'Login', kita ubah jadi 'Register'
-                                style: TextStyle(fontSize: 18),
-                              ),
+                              child:
+                                  _isLoading
+                                      ? const CircularProgressIndicator(
+                                        color: Colors.white,
+                                      )
+                                      : const Text(
+                                        'Register',
+                                        style: TextStyle(fontSize: 18),
+                                      ),
                             ),
                           ),
-                          // "Already have account? Login" (Tidak ada di gambar yang diberikan, tapi umum)
-                          // Jika Anda ingin menambahkannya, bisa di sini
                           const SizedBox(height: 20),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text("Already have an account?"),
+                              const Text("Sudah punya akun?"),
                               TextButton(
                                 onPressed: () {
-                                  Navigator.pop(
-                                    context,
-                                  ); // Kembali ke halaman Login
+                                  Navigator.pop(context);
                                 },
                                 child: Text(
                                   'Login',

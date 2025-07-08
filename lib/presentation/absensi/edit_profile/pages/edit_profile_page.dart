@@ -64,7 +64,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     // Jarak yang diinginkan antara bagian bawah avatar dan bagian atas card
     final double desiredGapBetweenAvatarAndCard =
-        25; // Anda bisa sesuaikan nilai ini
+        40; // Anda bisa sesuaikan nilai ini
 
     // Posisi TOP card: Dimulai setelah avatar, ditambah jarak yang diinginkan
     final double cardTopPosition =
@@ -105,8 +105,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
           // Judul "Edit Profile", Tombol Back
           Positioned(
             top:
-                MediaQuery.of(context).padding.top +
-                10, // Tetap 10dp dari status bar (sudah bagus)
+                MediaQuery.of(
+                  context,
+                ).padding.top, // <-- DIUBAH: Dihapus +10 agar naik ke atas
             left: 10,
             right: 10,
             child: Row(
@@ -198,7 +199,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 20.0,
                 cardPaddingTop, // Padding atas disesuaikan
                 20.0,
-                20.0, // <-- Mengurangi padding bawah kartu (dari 25.0 menjadi 15.0)
+                20.0, // <-- Tetap 20.0, sudah menyesuaikan dengan jarak dari tombol
               ),
               decoration: BoxDecoration(
                 color: AppColors.homeCardBackground, // Warna putih untuk card
@@ -249,7 +250,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ),
                     const SizedBox(
                       height: 30,
-                    ), // <-- Mengurangi jarak sebelum tombol (dari 40 menjadi 30)
+                    ), // Jarak sebelum tombol (sudah disesuaikan)
                     // Tombol Done
                     SizedBox(
                       width: double.infinity,

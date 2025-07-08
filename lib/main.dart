@@ -24,7 +24,6 @@ import 'package:absensi_maps/presentation/absensi/kehadiran/pages/kehadiran_page
 import 'package:absensi_maps/presentation/absensi/profile/pages/profile_page.dart'; // Halaman Profile (konten MainScreen)
 import 'package:absensi_maps/presentation/absensi/edit_profile/pages/edit_profile_page.dart'; // Halaman Edit Profile
 
-
 void main() async {
   // Pastikan Flutter binding sudah diinisialisasi sebelum menggunakan plugin
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,9 +31,14 @@ void main() async {
   // --- Konfigurasi Status Bar Sistem (agar transparan dan ikon putih) ---
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent, // Membuat latar belakang status bar transparan
-      statusBarIconBrightness: Brightness.light, // Mengatur warna ikon status bar menjadi terang (putih)
-      statusBarBrightness: Brightness.dark,       // Hanya untuk iOS: mengatur teks status bar menjadi terang
+      statusBarColor:
+          Colors.transparent, // Membuat latar belakang status bar transparan
+      statusBarIconBrightness:
+          Brightness
+              .light, // Mengatur warna ikon status bar menjadi terang (putih)
+      statusBarBrightness:
+          Brightness
+              .dark, // Hanya untuk iOS: mengatur teks status bar menjadi terang
     ),
   );
 
@@ -69,25 +73,34 @@ class MyApp extends StatelessWidget {
           theme: AppThemes.lightTheme, // Tema terang
           darkTheme: AppThemes.darkTheme, // Tema gelap
           themeMode: themeProvider.themeMode, // Mode tema dari ThemeProvider
-
           // --- Konfigurasi Rute Bernama ---
           initialRoute: '/', // Halaman awal aplikasi
           routes: {
             // Rute Autentikasi
             '/': (context) => const LoginPage(), // Halaman Login
             '/register': (context) => const RegisterPage(), // Halaman Register
-            '/password': (context) => const PasswordPage(), // Halaman New Password
-
+            '/password':
+                (context) => const PasswordPage(), // Halaman New Password
             // Rute Utama Aplikasi (setelah Login)
-            '/main': (context) => const MainPage(), // Halaman utama dengan BottomNavigationBar
-
+            '/main':
+                (context) =>
+                    const MainPage(), // Halaman utama dengan BottomNavigationBar
             // Rute untuk konten halaman yang bisa diakses secara langsung (opsional)
             // Namun, untuk navigasi dari BottomNav, halaman ini akan diakses sebagai anak dari MainPage
-            '/home': (context) => const HomePage(), // Halaman Home (konten MainPage)
-            '/history': (context) => const HistoryPage(userId: 'dummy_user_id'), // Halaman History (konten MainPage)
-            '/kehadiran': (context) => const KehadiranPage(), // Halaman Kehadiran (Map/Absensi detail, konten MainPage)
-            '/profile': (context) => const ProfilePage(), // Halaman Profile (konten MainPage)
-            '/edit_profile': (context) => const EditProfilePage(), // Halaman Edit Profile
+            '/home':
+                (context) => const HomePage(), // Halaman Home (konten MainPage)
+            '/history':
+                (context) => const HistoryPage(
+                  userId: 'dummy_user_id',
+                ), // Halaman History (konten MainPage)
+            '/kehadiran':
+                (context) =>
+                    const KehadiranPage(), // Halaman Kehadiran (Map/Absensi detail, konten MainPage)
+            '/profile':
+                (context) =>
+                    const ProfilePage(), // Halaman Profile (konten MainPage)
+            '/edit_profile':
+                (context) => const EditProfilePage(), // Halaman Edit Profile
           },
         );
       },
