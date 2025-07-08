@@ -20,7 +20,7 @@ import 'package:absensi_maps/presentation/absensi/auth/register/pages/register_p
 import 'package:absensi_maps/presentation/absensi/home/pages/main_page.dart'; // Ini diasumsikan sebagai MainScreen Anda
 import 'package:absensi_maps/presentation/absensi/home/pages/home_page.dart'; // Halaman Home (konten MainScreen)
 import 'package:absensi_maps/presentation/absensi/history/pages/history_page.dart'; // Halaman History (konten MainScreen)
-import 'package:absensi_maps/presentation/absensi/kehadiran/pages/kehadiran_page.dart'; // Halaman Kehadiran (Map/Absensi detail, konten MainScreen)
+import 'package:absensi_maps/presentation/absensi/attandance/pages/attandance_page.dart'; // Halaman Kehadiran (Map/Absensi detail, konten MainScreen)
 import 'package:absensi_maps/presentation/absensi/profile/pages/profile_page.dart'; // Halaman Profile (konten MainScreen)
 import 'package:absensi_maps/presentation/absensi/edit_profile/pages/edit_profile_page.dart'; // Halaman Edit Profile
 

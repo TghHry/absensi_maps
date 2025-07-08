@@ -1,5 +1,5 @@
 // import 'package:absensi_maps/features/theme_provider.dart';
-import 'package:absensi_maps/presentation/absensi/kehadiran/pages/kehadiran_page.dart';
+import 'package:absensi_maps/presentation/absensi/attandance/pages/attandance_page.dart';
 import 'package:absensi_maps/utils/app_colors.dart';
 import 'package:flutter/material.dart';
 // import 'package:provider/provider.dart'; // Untuk ThemeProvider
