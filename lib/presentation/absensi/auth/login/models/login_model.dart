@@ -1,52 +1,54 @@
 import 'dart:convert';
 
+import 'package:absensi_maps/presentation/absensi/profile/models/user_base.dart' show User;
+
 // Import model User jika berada di file terpisah, misalnya:
 // import 'package:your_app_name/models/user_model.dart';
 
 // --- Model User (diambil dari model registrasi Anda) ---
 // Jika model User sudah ada di file terpisah dan diimpor, Anda tidak perlu mendeklarasikannya lagi di sini.
 // Pastikan email_verified_at bersifat nullable.
-class User {
-  final int id;
-  final String name;
-  final String email;
-  final DateTime? emailVerifiedAt; // Menambahkan ini, bersifat nullable
-  final DateTime createdAt;
-  final DateTime updatedAt;
+// class User {
+//   final int id;
+//   final String name;
+//   final String email;
+//   final DateTime? emailVerifiedAt; // Menambahkan ini, bersifat nullable
+//   final DateTime createdAt;
+//   final DateTime updatedAt;
 
-  User({
-    required this.id,
-    required this.name,
-    required this.email,
-    this.emailVerifiedAt, // Jadikan opsional
-    required this.createdAt,
-    required this.updatedAt,
-  });
+//   User({
+//     required this.id,
+//     required this.name,
+//     required this.email,
+//     this.emailVerifiedAt, // Jadikan opsional
+//     required this.createdAt,
+//     required this.updatedAt,
+//   });
 
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id'] as int,
-      name: json['name'] as String,
-      email: json['email'] as String,
-      emailVerifiedAt: json['email_verified_at'] != null
-          ? DateTime.parse(json['email_verified_at'] as String)
-          : null, // Parse jika tidak null
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
-    );
-  }
+//   factory User.fromJson(Map<String, dynamic> json) {
+//     return User(
+//       id: json['id'] as int,
+//       name: json['name'] as String,
+//       email: json['email'] as String,
+//       emailVerifiedAt: json['email_verified_at'] != null
+//           ? DateTime.parse(json['email_verified_at'] as String)
+//           : null, // Parse jika tidak null
+//       createdAt: DateTime.parse(json['created_at'] as String),
+//       updatedAt: DateTime.parse(json['updated_at'] as String),
+//     );
+//   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'email': email,
-      'email_verified_at': emailVerifiedAt?.toIso8601String(), // Null-safe
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
-    };
-  }
-}
+//   Map<String, dynamic> toJson() {
+//     return {
+//       'id': id,
+//       'name': name,
+//       'email': email,
+//       'email_verified_at': emailVerifiedAt?.toIso8601String(), // Null-safe
+//       'created_at': createdAt.toIso8601String(),
+//       'updated_at': updatedAt.toIso8601String(),
+//     };
+//   }
+// }
 // --- Akhir Model User ---
 
 

@@ -23,7 +23,7 @@ class _MainPageState extends State<MainPage> {
   // Penting: Halaman-halaman ini TIDAK BOLEH memiliki BottomNavigationBar sendiri
   static final List<Widget> _widgetOptions = <Widget>[
     const HomePage(), // Index 0: Home
-    const KehadiranPage(), // Index 1: Map/Absensi
+    const AttandancePage(), // Index 1: Map/Absensi
     const HistoryPage(
       userId: 'dummy_user_id',
     ), // Index 2: History (beri dummy userId untuk UI)
@@ -46,31 +46,6 @@ class _MainPageState extends State<MainPage> {
     // ); // Untuk toggle tema di AppBar
 
     return Scaffold(
-      // AppBar bisa diletakkan di sini jika Anda ingin AppBar yang konsisten di semua halaman
-      // Jika setiap halaman anak punya AppBar sendiri, hapus AppBar dari sini.
-      // appBar: AppBar(
-      // title: Text(
-      //   _selectedIndex == 0 ? 'Home' : // Judul AppBar sesuai halaman yang aktif
-      //   _selectedIndex == 1 ? 'Peta Absensi' :
-      //   _selectedIndex == 2 ? 'Riwayat Absensi' :
-      //   'Profil Saya',
-      //   style: TextStyle(color: Theme.of(context).appBarTheme.foregroundColor), // Warna teks AppBar
-      // ),
-      //   backgroundColor:
-      //       Theme.of(context).appBarTheme.backgroundColor, // Background AppBar
-      //   actions: [
-      //     IconButton(
-      //       icon: Icon(
-      //         themeProvider.themeMode == ThemeMode.dark
-      //             ? Icons.light_mode
-      //             : Icons.dark_mode,
-      //       ),
-      //       onPressed: () {
-      //         themeProvider.toggleTheme();
-      //       },
-      //     ),
-      //   ],
-      // ),
       body: IndexedStack(
         // IndexedStack menjaga state setiap halaman
         index: _selectedIndex,
@@ -97,7 +72,7 @@ class _MainPageState extends State<MainPage> {
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
           items: const <BottomNavigationBarItem>[
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Map'),
+            BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Kehadiran'),
             BottomNavigationBarItem(
               icon: Icon(Icons.history),
               label: 'History',

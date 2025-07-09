@@ -1,34 +1,31 @@
 // File: lib/models/attendance_models.dart
+// Pastikan sudah sesuai dengan ini, termasuk import flutter/foundation.dart jika menggunakan debugPrint di helper.
 
 import 'dart:convert';
+import 'package:flutter/foundation.dart'; // Untuk debugPrint di _tryParseDateTime
 
-// Helper function untuk parsing DateTime yang fleksibel
+// Helper function untuk parsing DateTime yang fleksibel (seperti sebelumnya)
 DateTime? _tryParseDateTime(String? dateString) {
   if (dateString == null || dateString.isEmpty) {
     return null;
   }
   try {
-    // Coba parse sebagai ISO 8601 (format standar)
     return DateTime.parse(dateString);
   } catch (e) {
-    // Jika gagal, coba format YYYY-MM-DD HH:MM:SS (tanpa T dan Z)
     try {
-      // Perlu memisahkan tanggal dan waktu jika ada, atau tambahkan 'T' di tengah
-      // Ini adalah estimasi, jika formatnya selalu seperti itu (YYYY-MM-DD HH:MM:SS)
       if (dateString.length == 19 && dateString.contains(' ')) {
-        return DateTime.parse(dateString.replaceFirst(' ', 'T') + 'Z'); // Asumsi UTC jika ada Z
+        return DateTime.parse(dateString.replaceFirst(' ', 'T') + 'Z');
       }
     } catch (e2) {
-      // Biarkan null jika kedua format gagal
       debugPrint('Warning: Could not parse date string "$dateString": $e2');
     }
   }
   return null;
 }
 
-// Model untuk satu record absensi
+// Model untuk satu record absensi (tetap sama)
 class AttendanceRecord {
-  final int? id; // Nullable karena mungkin belum ada ID saat check-in awal
+  final int? id;
   final int? userId;
   final DateTime? checkInTime; // check_in
   final String? checkInLocation; // check_in_location
@@ -65,8 +62,7 @@ class AttendanceRecord {
   });
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
-    // Menangani check_in_location dan check_out_location sebagai string gabungan
-    // Jika API mengirim lat/lng terpisah, gunakan itu. Jika tidak, coba parse dari string gabungan.
+    // Logika parsing lat/lng dari string gabungan atau field terpisah
     double? parseLat(dynamic loc) {
       if (loc is double) return loc;
       if (loc is String) {
@@ -85,12 +81,10 @@ class AttendanceRecord {
       return null;
     }
 
-    // Ambil lat/lng dari field terpisah jika ada
     final cILat = json['check_in_lat'] is String ? double.tryParse(json['check_in_lat']) : json['check_in_lat'] as double?;
     final cILng = json['check_in_lng'] is String ? double.tryParse(json['check_in_lng']) : json['check_in_lng'] as double?;
     final cOLat = json['check_out_lat'] is String ? double.tryParse(json['check_out_lat']) : json['check_out_lat'] as double?;
     final cOLng = json['check_out_lng'] is String ? double.tryParse(json['check_out_lng']) : json['check_out_lng'] as double?;
-
 
     return AttendanceRecord(
       id: json['id'] as int?,
@@ -105,7 +99,7 @@ class AttendanceRecord {
       alasanIzin: json['alasan_izin'] as String?,
       createdAt: _tryParseDateTime(json['created_at'] as String?),
       updatedAt: _tryParseDateTime(json['updated_at'] as String?),
-      checkInLat: cILat ?? parseLat(json['check_in_location']), // Prioritaskan field terpisah
+      checkInLat: cILat ?? parseLat(json['check_in_location']),
       checkInLng: cILng ?? parseLng(json['check_in_location']),
       checkOutLat: cOLat ?? parseLat(json['check_out_location']),
       checkOutLng: cOLng ?? parseLng(json['check_out_location']),
@@ -134,10 +128,10 @@ class AttendanceRecord {
   }
 }
 
-// Model respons umum untuk Check-in dan Check-out
+// Model respons umum untuk Check-in dan Check-out (tetap sama)
 class AttendanceResponse {
   final String message;
-  final AttendanceRecord? data; // Data bisa null untuk beberapa error
+  final AttendanceRecord? data;
 
   AttendanceResponse({
     required this.message,
@@ -156,5 +150,74 @@ class AttendanceResponse {
       'message': message,
       'data': data?.toJson(),
     };
+  }
+}
+
+// MODEL BARU UNTUK LIST RIWAYAT ABSENSI
+class ListAttendanceHistoryResponse {
+  final String message;
+  final List<AttendanceRecord> data;
+
+  ListAttendanceHistoryResponse({
+    required this.message,
+    required this.data,
+  });
+
+  factory ListAttendanceHistoryResponse.fromJson(Map<String, dynamic> json) {
+    return ListAttendanceHistoryResponse(
+      message: json['message'] as String,
+      data: (json['data'] as List<dynamic>)
+          .map((e) => AttendanceRecord.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'message': message,
+      'data': data.map((record) => record.toJson()).toList(),
+    };
+  }
+}
+
+// Model untuk Absen Stats (tetap sama)
+class AbsenStats {
+  final int totalAbsen;
+  final int totalMasuk;
+  final int totalIzin;
+  final bool sudahAbsenHariIni;
+
+  AbsenStats({
+    required this.totalAbsen,
+    required this.totalMasuk,
+    required this.totalIzin,
+    required this.sudahAbsenHariIni,
+  });
+
+  factory AbsenStats.fromJson(Map<String, dynamic> json) {
+    return AbsenStats(
+      totalAbsen: json['total_absen'] as int,
+      totalMasuk: json['total_masuk'] as int,
+      totalIzin: json['total_izin'] as int,
+      sudahAbsenHariIni: json['sudah_absen_hari_ini'] as bool,
+    );
+  }
+}
+
+// Model respons untuk Absen Stats (tetap sama)
+class AbsenStatsResponse {
+  final String message;
+  final AbsenStats data;
+
+  AbsenStatsResponse({
+    required this.message,
+    required this.data,
+  });
+
+  factory AbsenStatsResponse.fromJson(Map<String, dynamic> json) {
+    return AbsenStatsResponse(
+      message: json['message'] as String,
+      data: AbsenStats.fromJson(json['data'] as Map<String, dynamic>),
+    );
   }
 }

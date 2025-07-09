@@ -1,82 +1,443 @@
+// File: AttandancePage.dart
+
+import 'package:absensi_maps/presentation/absensi/attandance/models/attandance_model.dart';
+import 'package:absensi_maps/presentation/absensi/attandance/services/attandance_service.dart'
+    show AttendanceService;
 import 'package:absensi_maps/utils/app_colors.dart' show AppColors;
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart'; // Import Google Maps
-// import 'package:provider/provider.dart'; // Untuk ThemeProvider
+import 'package:geolocator/geolocator.dart'; // Untuk mendapatkan lokasi
+import 'package:geocoding/geocoding.dart'; // Untuk mendapatkan alamat dari lat/lng
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart'; // Untuk format tanggal dan waktu
+import 'package:flutter/foundation.dart'; // Untuk debugPrint
 
-
-class KehadiranPage extends StatefulWidget {
-  const KehadiranPage({super.key});
+class AttandancePage extends StatefulWidget {
+  const AttandancePage({super.key});
 
   @override
-  State<KehadiranPage> createState() => _KehadiranPageState();
+  State<AttandancePage> createState() => _AttandancePageState();
 }
 
-class _KehadiranPageState extends State<KehadiranPage> {
+class _AttandancePageState extends State<AttandancePage> {
   GoogleMapController? mapController;
+  final Set<Marker> _markers = {};
 
-  // Lokasi default statis untuk peta
-  static const LatLng _initialCameraPosition = LatLng(-6.2088, 106.8456); // Contoh: Jakarta
-  final Set<Marker> _markers = {}; // Untuk menempatkan marker di peta
+  final TextEditingController _noteController = TextEditingController();
 
-  final TextEditingController _noteController = TextEditingController(); // Controller untuk Note
-  String _statusCheckIn = 'Belum Check in'; // Status lokal untuk card
+  AttendanceRecord? _todayAttendance;
+  String _currentAddress =
+      'Mendapatkan lokasi...'; // Alamat yang didapat dari GPS
+  double? _currentLat;
+  double? _currentLng;
+
+  bool _isFetchingInitialData = true;
+  bool _isLoadingApiAction = false;
+  String? _errorMessage;
+
+  final AttendanceService _attendanceService = AttendanceService();
 
   @override
   void initState() {
     super.initState();
-    // Tambahkan marker default di lokasi awal
-    _markers.add(
-      const Marker(
-        markerId: MarkerId('defaultLocation'),
-        position: _initialCameraPosition,
-        infoWindow: InfoWindow(title: 'Lokasi Kantor Pusat (Statis)'),
-      ),
-    );
+    _initializePageData();
   }
 
   @override
   void dispose() {
     _noteController.dispose();
+    mapController?.dispose();
     super.dispose();
   }
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
+    if (_currentLat != null && _currentLng != null) {
+      mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(_currentLat!, _currentLng!), 17.0),
+      );
+    }
   }
 
-  // Fungsi placeholder untuk tombol Check in
-  void _onCheckInButtonPressed() {
+  Future<void> _initializePageData() async {
     setState(() {
-      _statusCheckIn = 'Mencatat Check in...'; // Update status di UI
+      _isFetchingInitialData = true;
+      _errorMessage = null;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Check in ditekan! Note: ${_noteController.text} (UI Simulasi)'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-    // Setelah simulasi, Anda bisa update status lagi
-    Future.delayed(const Duration(seconds: 2), () {
+
+    try {
+      final Position position = await _getCurrentLocation();
+      _currentLat = position.latitude;
+      _currentLng = position.longitude;
+
+      _updateMapToCurrentLocation();
+      await _getAddressFromLatLng(position); // Dapatkan alamat di sini
+      await _fetchTodayAttendanceStatus();
+    } catch (e) {
+      debugPrint('Error initializing AttandancePage: $e');
+      if (!mounted) return;
       setState(() {
-        _statusCheckIn = 'Check in Berhasil!';
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _currentAddress =
+            'Alamat tidak ditemukan.'; // Set alamat ke pesan error juga
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $_errorMessage'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isFetchingInitialData = false;
+      });
+    }
+  }
+
+  Future<Position> _getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error(
+        'Layanan lokasi tidak diaktifkan. Mohon aktifkan GPS Anda.',
+      );
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Izin lokasi ditolak. Mohon izinkan akses lokasi.');
+      }
+    }
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error(
+        'Izin lokasi ditolak secara permanen. Mohon ubah di pengaturan aplikasi.',
+      );
+    }
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+  }
+
+  // Mengkonversi lat/lng menjadi alamat (reverse geocoding)
+  Future<void> _getAddressFromLatLng(Position position) async {
+    setState(() {
+      _currentAddress = 'Mendapatkan lokasi...'; // Set status loading alamat
     });
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+        // localeIdentifier: 'id_ID', // Opsional: Untuk bahasa Indonesia
+      );
+      if (!mounted) return;
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        setState(() {
+          // COBA PRIORITASKAN ALAMAT YANG LEBIH SEDERHANA (KOTA/DISTRIK)
+          String simplifiedAddress =
+              place.locality ?? place.subLocality ?? place.street ?? '';
+
+          // Jika alamat sederhana masih kosong, baru gunakan alamat lengkap.
+          _currentAddress =
+              simplifiedAddress.isNotEmpty
+                  ? simplifiedAddress
+                  : "${place.street ?? ''}, ${place.subLocality ?? ''}, "
+                      "${place.locality ?? ''}, ${place.administrativeArea ?? ''} ${place.postalCode ?? ''}, ${place.country ?? ''}";
+
+          // OPSIONAL: Jika alamat lengkap masih sering ditolak, pangkas menjadi maksimal X karakter
+          // if (_currentAddress.length > 100) { // Contoh: pangkas ke 100 karakter
+          //   _currentAddress = _currentAddress.substring(0, 97) + '...';
+          // }
+
+          _markers.clear();
+          _markers.add(
+            Marker(
+              markerId: const MarkerId('currentLocation'),
+              position: LatLng(position.latitude, position.longitude),
+              infoWindow: InfoWindow(title: _currentAddress),
+            ),
+          );
+        });
+      } else {
+        setState(() {
+          _currentAddress = ''; // Alamat kosong jika tidak ada placemarks
+        });
+      }
+    } catch (e) {
+      debugPrint('Error getting address from location: $e');
+      if (!mounted) return;
+      setState(() {
+        _currentAddress = ''; // Alamat kosong jika geocoding gagal
+      });
+    }
+  }
+
+  void _updateMapToCurrentLocation() {
+    if (mapController != null && _currentLat != null && _currentLng != null) {
+      mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(_currentLat!, _currentLng!), 17.0),
+      );
+    }
+  }
+
+  Future<void> _fetchTodayAttendanceStatus() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingApiAction = true;
+    });
+    try {
+      final AttendanceRecord? status =
+          await _attendanceService.getTodayAttendance();
+      if (!mounted) return;
+      setState(() {
+        _todayAttendance = status;
+      });
+    } catch (e) {
+      debugPrint('Error fetching today attendance status: $e');
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingApiAction = false;
+      });
+    }
+  }
+
+  void _performCheckIn({required String status}) async {
+    // Validasi: Pastikan koordinat lokasi sudah didapat
+    if (_currentLat == null || _currentLng == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Koordinat lokasi belum ditemukan. Mohon tunggu sesaat.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      await _initializePageData(); // Coba inisialisasi ulang
+      return;
+    }
+    // VALIDASI KRITIS: Pastikan _currentAddress tidak kosong
+    if (_currentAddress.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Alamat lokasi tidak tersedia. Mohon tunggu sesaat atau periksa koneksi internet.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    String? alasanIzin;
+    if (status == 'izin') {
+      alasanIzin = await _showIzinReasonDialog();
+      if (alasanIzin == null || alasanIzin.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Absensi izin dibatalkan atau alasan tidak diisi.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isLoadingApiAction = true;
+    });
+    try {
+      final response = await _attendanceService.checkIn(
+        status: status,
+        alasanIzin: alasanIzin,
+        checkInAddress: _currentAddress, // Teruskan alamat yang sudah didapat
+      );
+      if (!mounted) return;
+      setState(() {
+        _todayAttendance = response.data;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response.message),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _fetchTodayAttendanceStatus();
+    } catch (e) {
+      debugPrint('Check-in failed: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Check-in gagal: ${e.toString().replaceFirst('Exception: ', '')}',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingApiAction = false;
+      });
+    }
+  }
+
+  Future<String?> _showIzinReasonDialog() async {
+    TextEditingController reasonController = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Alasan Izin'),
+          content: TextField(
+            controller: reasonController,
+            decoration: const InputDecoration(
+              hintText: 'Masukkan alasan izin Anda',
+            ),
+            maxLines: 3,
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            ElevatedButton(
+              child: const Text('Kirim'),
+              onPressed: () {
+                Navigator.of(context).pop(reasonController.text);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _performCheckOut() async {
+    if (_currentLat == null || _currentLng == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Koordinat lokasi belum ditemukan. Mohon tunggu sesaat.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      await _initializePageData(); // Coba inisialisasi ulang
+      return;
+    }
+    // VALIDASI KRITIS: Pastikan _currentAddress tidak kosong
+    if (_currentAddress.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Alamat lokasi tidak tersedia. Mohon tunggu sesaat atau periksa koneksi.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isLoadingApiAction = true;
+    });
+    try {
+      final response = await _attendanceService.checkOut(
+        checkOutAddress: _currentAddress, // Teruskan alamat yang sudah didapat
+      );
+      if (!mounted) return;
+      setState(() {
+        _todayAttendance = response.data;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response.message),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _fetchTodayAttendanceStatus();
+    } catch (e) {
+      debugPrint('Check-out failed: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Check-out gagal: ${e.toString().replaceFirst('Exception: ', '')}',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingApiAction = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    // final screenWidth = MediaQuery.of(context).size.width;
+    final now = DateTime.now();
+    final String formattedTime = DateFormat('hh:mm a').format(now);
+    final String formattedDate = DateFormat('EEE, dd MMMM ').format(now);
+
+    String currentStatusMessage = '';
+    bool showCheckInAsPresentButton = false;
+    bool showCheckInAsLeaveButton = false;
+    bool showCheckOutButton = false;
+
+    final bool buttonsDisabled =
+        _isLoadingApiAction || _isFetchingInitialData || _errorMessage != null;
+
+    if (_isFetchingInitialData) {
+      currentStatusMessage = 'Memuat lokasi & status absensi...';
+    } else if (_errorMessage != null) {
+      currentStatusMessage = 'Error: $_errorMessage';
+    } else if (_todayAttendance == null) {
+      currentStatusMessage = 'Anda belum absen hari ini.';
+      showCheckInAsPresentButton = true;
+      showCheckInAsLeaveButton = true;
+    } else if (_todayAttendance?.status == 'masuk') {
+      if (_todayAttendance?.checkOutTime == null) {
+        currentStatusMessage =
+            'Anda sudah Check In pada ${DateFormat('HH:mm a').format(_todayAttendance!.checkInTime!)}.';
+        showCheckOutButton = true;
+      } else {
+        currentStatusMessage =
+            'Anda sudah Check In & Check Out pada ${DateFormat('HH:mm a').format(_todayAttendance!.checkOutTime!)}.';
+      }
+    } else if (_todayAttendance?.status == 'izin') {
+      currentStatusMessage =
+          'Anda sudah Izin hari ini karena ${_todayAttendance!.alasanIzin ?? 'alasan tidak dicatat'}.';
+    }
 
     return Scaffold(
-      backgroundColor: Colors.white, // Background halaman Map
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Peta Statis
+          // Peta Google Maps
           GoogleMap(
             onMapCreated: _onMapCreated,
-            initialCameraPosition: const CameraPosition(
-              target: _initialCameraPosition,
+            initialCameraPosition: CameraPosition(
+              target:
+                  _currentLat != null && _currentLng != null
+                      ? LatLng(_currentLat!, _currentLng!)
+                      : const LatLng(-6.2088, 106.8456),
               zoom: 15.0,
             ),
             markers: _markers,
@@ -86,84 +447,102 @@ class _KehadiranPageState extends State<KehadiranPage> {
             compassEnabled: true,
           ),
 
-          // Card "Check in" yang muncul di atas peta
+          // Card "Check in" di atas peta
           Positioned(
-            bottom: 0, // Posisikan di bagian bawah layar
+            bottom: 0,
             left: 0,
             right: 0,
+            top: screenHeight * 0.35,
             child: Container(
-              height: screenHeight * 0.6, // Tinggi card relatif terhadap layar
               decoration: BoxDecoration(
-                color: AppColors.loginCardColor, // Warna putih untuk card
+                color: AppColors.loginCardColor,
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(30), // Sudut melengkung di kiri atas
-                  topRight: Radius.circular(30), // Sudut melengkung di kanan atas
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Color.fromARGB((255 * 0.2).round(), 0, 0, 0),
                     blurRadius: 10,
-                    offset: const Offset(0, -5), // Bayangan ke atas
+                    offset: const Offset(0, -5),
                   ),
                 ],
               ),
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(25.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center, // Judul tengah
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Check in',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
-                          ),
+                      'Absensi Hari Ini',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
                     ),
-                    const SizedBox(height: 25), // Jarak ke detail lokasi
+                    const SizedBox(height: 25),
                     // Your Location Section
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.location_on, color: Colors.black, size: 28),
+                        const Icon(
+                          Icons.location_on,
+                          color: Colors.black,
+                          size: 28,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Your Location',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textDark,
-                                    ),
+                                'Lokasi Anda',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textDark,
+                                ),
                               ),
                               const SizedBox(height: 5),
-                              Text(
-                                'Jl. Citra Indah Utama No.18\nRT.04/RW.019, Desa Sukamaju,\nKecamatan Jonggol, Kabupaten Bogor,\nJawa Barat 16830', // Alamat statis
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              _isFetchingInitialData &&
+                                      _currentAddress == 'Mendapatkan lokasi...'
+                                  ? const CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  )
+                                  : Text(
+                                    _currentAddress,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium?.copyWith(
                                       color: Colors.grey[700],
-                                      height: 1.5, // Line height
+                                      height: 1.5,
                                     ),
-                              ),
+                                  ),
                             ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 25), // Jarak ke Note
+                    const SizedBox(height: 25),
                     // Note (Optional) Section
-                    const Divider(height: 1, thickness: 1, color: Colors.grey), // Garis pemisah
+                    const Divider(height: 1, thickness: 1, color: Colors.grey),
                     const SizedBox(height: 15),
                     Row(
                       children: [
-                        const Icon(Icons.notes, color: Colors.black, size: 24), // Icon Note
+                        const Icon(Icons.notes, color: Colors.black, size: 24),
                         const SizedBox(width: 10),
                         Text(
-                          'Note (Optional)',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textDark,
-                              ),
+                          'Catatan (Opsional)',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
                         ),
                       ],
                     ),
@@ -177,62 +556,164 @@ class _KehadiranPageState extends State<KehadiranPage> {
                           borderSide: BorderSide.none,
                         ),
                         filled: true,
-                        fillColor: Colors.grey[200], // Background TextField
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                        fillColor: Colors.grey[200],
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 10,
+                        ),
                       ),
                       maxLines: 2,
                     ),
                     const SizedBox(height: 25),
-                    // Status Check in
+                    // Status Absensi Hari Ini
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Status : $_statusCheckIn', // Menampilkan status
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: _statusCheckIn.contains('Berhasil') ? Colors.green : AppColors.textDark,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
+                      child:
+                          _isFetchingInitialData
+                              ? const CircularProgressIndicator(strokeWidth: 2)
+                              : Text(
+                                'Status Absensi : $currentStatusMessage',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.titleMedium?.copyWith(
+                                  color:
+                                      (currentStatusMessage.contains('Error') ||
+                                              currentStatusMessage.contains(
+                                                'ditolak',
+                                              ))
+                                          ? Colors.red
+                                          : (currentStatusMessage.contains(
+                                                'Check In pada',
+                                              ) ||
+                                              currentStatusMessage.contains(
+                                                'Izin hari ini',
+                                              ) ||
+                                              currentStatusMessage.contains(
+                                                'Check Out pada',
+                                              ))
+                                          ? Colors.green
+                                          : AppColors.textDark,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                     ),
-                    const Spacer(), // Mendorong tombol ke bawah
-                    // Tombol Check in
+                    const SizedBox(height: 10),
+                    // Tombol Aksi (Check In / Check Out)
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _onCheckInButtonPressed,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.loginButtonColor, // Warna biru tombol
-                          foregroundColor: AppColors.textLight,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15), // Sudut tombol
-                          ),
-                        ),
-                        child: const Text(
-                          'Check in',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                      ),
+                      child:
+                          _isLoadingApiAction
+                              ? const Center(child: CircularProgressIndicator())
+                              : Column(
+                                children: [
+                                  if (showCheckInAsPresentButton)
+                                    ElevatedButton(
+                                      onPressed:
+                                          buttonsDisabled
+                                              ? null
+                                              : () => _performCheckIn(
+                                                status: 'masuk',
+                                              ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            AppColors.loginButtonColor,
+                                        foregroundColor: AppColors.textLight,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 15,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            15,
+                                          ),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Check In (Masuk)',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  if (showCheckInAsPresentButton &&
+                                      showCheckInAsLeaveButton)
+                                    const SizedBox(height: 10),
+                                  if (showCheckInAsLeaveButton)
+                                    ElevatedButton(
+                                      onPressed:
+                                          buttonsDisabled
+                                              ? null
+                                              : () => _performCheckIn(
+                                                status: 'izin',
+                                              ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            AppColors.loginAccentColor,
+                                        foregroundColor: AppColors.textDark,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 15,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            15,
+                                          ),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Check In (Izin)',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  if (showCheckOutButton)
+                                    ElevatedButton(
+                                      onPressed:
+                                          buttonsDisabled
+                                              ? null
+                                              : _performCheckOut,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            AppColors.loginButtonColor,
+                                        foregroundColor: AppColors.textLight,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 15,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            15,
+                                          ),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Check Out',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  if (!showCheckInAsPresentButton &&
+                                      !showCheckInAsLeaveButton &&
+                                      !showCheckOutButton &&
+                                      !buttonsDisabled)
+                                    Text(
+                                      'Status terakhir: $currentStatusMessage',
+                                      textAlign: TextAlign.center,
+                                      style:
+                                          Theme.of(
+                                            context,
+                                          ).textTheme.bodyMedium,
+                                    ),
+                                ],
+                              ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-          // Tambahkan BottomNavigationBar di sini jika Anda tidak mengaturnya di MainScreen
-          // Jika BottomNav di MainScreen, maka kode di bawah ini dihapus
-          // Positioned(
-          //   bottom: 0,
-          //   left: 0,
-          //   right: 0,
-          //   child: Container(
-          //     color: AppColors.bottomNavBackground, // Warna kuning solid
-          //     padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
-          //     child: BottomNavigationBar(
-          //       // ... (item BottomNav)
-          //     ),
-          //   ),
-          // ),
         ],
       ),
     );

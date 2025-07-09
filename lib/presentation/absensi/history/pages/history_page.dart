@@ -1,18 +1,17 @@
 import 'package:absensi_maps/features/theme_provider.dart';
+import 'package:absensi_maps/presentation/absensi/attandance/models/attandance_model.dart';
+import 'package:absensi_maps/presentation/absensi/attandance/services/attandance_service.dart';
 import 'package:absensi_maps/utils/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Tetap diimpor untuk ThemeProvider
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart'; // Untuk format tanggal
 
+// Import model dan service absensi
 
-// Jika Anda ingin navigasi kembali ke halaman lain dari tombol BottomNav di MainScreen,
-// pastikan halaman-halaman tersebut sudah diimpor di MainScreen.
-// Di halaman ini, kita tidak lagi memiliki BottomNavigationBar secara langsung.
-
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Untuk mengambil token
 
 class HistoryPage extends StatefulWidget {
-  // userId ini akan dipakai untuk logika nanti, untuk UI bisa dummy saja
-  final String userId;
+  final String userId; // userId ini akan dipakai untuk logika nanti
 
   const HistoryPage({super.key, required this.userId});
 
@@ -21,41 +20,103 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  // Data statis untuk filter bulan
-  final List<String> _months = ['Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-  String _selectedMonth = 'Juni'; // Bulan yang aktif secara default sesuai gambar terbaru
-
-  // Data riwayat absensi statis untuk tampilan UI
-  final List<Map<String, dynamic>> _mockHistoryData = [
-    // Contoh data untuk bulan Juni
-    {'date': DateTime(2025, 6, 13), 'check_in': '07:50:00', 'check_out': '17:50:00', 'is_late': false},
-    {'date': DateTime(2025, 6, 12), 'check_in': '07:50:00', 'check_out': '17:50:00', 'is_late': false},
-    {'date': DateTime(2025, 6, 11), 'check_in': '07:50:00', 'check_out': '17:50:00', 'is_late': false},
-    {'date': DateTime(2025, 6, 10), 'check_in': '07:50:00', 'check_out': '17:50:00', 'is_late': false},
-    {'date': DateTime(2025, 6, 9), 'check_in': '07:50:00', 'check_out': '17:50:00', 'is_late': false},
-    // Contoh data untuk bulan Juli
-    {'date': DateTime(2025, 7, 1), 'check_in': '08:05:00', 'check_out': '17:00:00', 'is_late': true},
-    {'date': DateTime(2025, 7, 2), 'check_in': '07:45:00', 'check_out': '17:30:00', 'is_late': false},
+  // Daftar bulan yang hardcoded (sesuai UI)
+  final List<String> _months = [
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
   ];
+  String _selectedMonth = 'Juni'; // Bulan yang aktif secara default
 
-  // Fungsi untuk memfilter data berdasarkan bulan yang dipilih
-  List<Map<String, dynamic>> _getFilteredHistory() {
-    // Sesuaikan indeks bulan: Juni (0) -> Bulan 6, Juli (1) -> Bulan 7, dst.
-    // Tambah 6 karena Juni adalah bulan ke-6
-    final int selectedMonthNumber = _months.indexOf(_selectedMonth) + 6;
-    return _mockHistoryData.where((record) => record['date'].month == selectedMonthNumber).toList();
+  // Data riwayat absensi dari API
+  List<AttendanceRecord> _attendanceRecords = [];
+  bool _isLoadingHistory = true;
+  String? _historyError;
+
+  final AttendanceService _attendanceService = AttendanceService();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchHistoryData(_selectedMonth); // Ambil data history untuk bulan default
+  }
+
+  // Fungsi untuk mengambil data riwayat absensi dari API
+  Future<void> _fetchHistoryData(String month) async {
+    setState(() {
+      _isLoadingHistory = true;
+      _historyError = null;
+      _attendanceRecords = []; // Kosongkan data sebelumnya
+    });
+
+    try {
+      // Tentukan tanggal awal dan akhir bulan yang dipilih
+      final int currentYear = DateTime.now().year; // Asumsi tahun saat ini
+      final int selectedMonthNumber = _months.indexOf(month) + 6; // Juni (0) -> Bulan 6, dst.
+
+      final DateTime startDate = DateTime(currentYear, selectedMonthNumber, 1);
+      final DateTime endDate = DateTime(currentYear, selectedMonthNumber + 1, 0); // Hari terakhir bulan
+
+      final String formattedStartDate = DateFormat('yyyy-MM-dd').format(startDate);
+      final String formattedEndDate = DateFormat('yyyy-MM-dd').format(endDate);
+
+      final List<AttendanceRecord> fetchedHistory = await _attendanceService.getAttendanceHistory(
+        formattedStartDate,
+        formattedEndDate,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _attendanceRecords = fetchedHistory;
+      });
+    } catch (e) {
+      debugPrint('Error fetching attendance history: $e');
+      if (!mounted) return;
+      setState(() {
+        _historyError = e.toString().replaceFirst('Exception: ', '');
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memuat riwayat: $_historyError'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingHistory = false;
+      });
+    }
+  }
+
+  // Fungsi untuk menghapus record absensi
+  Future<void> _deleteAttendanceRecord(int recordId) async {
+    try {
+      final response = await _attendanceService.deleteAttendanceRecord(recordId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response.message), backgroundColor: Colors.green),
+      );
+      // Setelah berhasil hapus di API, refresh data di UI
+      _fetchHistoryData(_selectedMonth);
+    } catch (e) {
+      debugPrint('Error deleting attendance record: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menghapus absensi: ${e.toString().replaceFirst('Exception: ', '')}'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context); // Untuk kebutuhan tema
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    final filteredHistory = _getFilteredHistory();
-
     return Scaffold(
-      backgroundColor: AppColors.lightBackground, // Background abu-abu muda
+      backgroundColor: AppColors.lightBackground,
       body: Stack(
         children: [
           // Latar belakang kuning dan biru (mirip desain gambar)
@@ -64,8 +125,8 @@ class _HistoryPageState extends State<HistoryPage> {
             left: 0,
             right: 0,
             child: Container(
-              height: screenHeight * 0.4, // Ketinggian area atas
-              color: AppColors.historyYellowShape, // Warna kuning
+              height: screenHeight * 0.4,
+              color: AppColors.historyYellowShape,
             ),
           ),
           Positioned(
@@ -73,20 +134,19 @@ class _HistoryPageState extends State<HistoryPage> {
             left: 0,
             right: 0,
             child: ClipPath(
-              clipper: _HistoryBlueClipper(screenWidth, screenHeight * 0.4), // Custom clipper untuk bentuk biru
+              clipper: _HistoryBlueClipper(screenWidth, screenHeight * 0.4),
               child: Container(
                 height: screenHeight * 0.4,
-                color: AppColors.historyBlueShape, // Warna biru
+                color: AppColors.historyBlueShape,
               ),
             ),
           ),
-          // Bentuk putih melengkung di bagian bawah area header
           Positioned(
-            top: screenHeight * 0.35, // Posisikan sedikit di atas card
+            top: screenHeight * 0.35,
             left: 0,
             right: 0,
             child: Container(
-              height: screenHeight * 0.1, // Ketinggian bentuk putih
+              height: screenHeight * 0.1,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.only(
@@ -96,12 +156,10 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
             ),
           ),
-
-
           // Konten utama halaman (History Title, Bulan, List Absensi)
           Positioned.fill(
             child: SingleChildScrollView(
-              padding: EdgeInsets.only(top: screenHeight * 0.08), // Padding dari atas untuk judul
+              padding: EdgeInsets.only(top: screenHeight * 0.08),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -111,7 +169,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     child: Text(
                       'History',
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                            color: AppColors.historyBlueShape, // Warna biru
+                            color: AppColors.historyBlueShape,
                             fontWeight: FontWeight.bold,
                           ),
                     ),
@@ -119,7 +177,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   const SizedBox(height: 20),
                   // Filter Bulan (Horizontal ListView untuk scrollable tabs)
                   SizedBox(
-                    height: 50, // Tinggi untuk baris bulan
+                    height: 50,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 10.0),
@@ -132,6 +190,7 @@ class _HistoryPageState extends State<HistoryPage> {
                             setState(() {
                               _selectedMonth = month;
                             });
+                            _fetchHistoryData(month); // Panggil API saat bulan berubah
                           },
                           child: Container(
                             alignment: Alignment.center,
@@ -155,45 +214,119 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
                   const SizedBox(height: 20),
                   // Daftar Absensi
-                  if (filteredHistory.isEmpty)
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Text(
-                          'Tidak ada riwayat absensi untuk bulan ini.',
-                          style: Theme.of(context).textTheme.titleMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    )
-                  else
-                    ListView.builder(
-                      shrinkWrap: true, // Penting agar ListView bisa di dalam SingleChildScrollView
-                      physics: const NeverScrollableScrollPhysics(), // Nonaktifkan scroll ListView
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      itemCount: filteredHistory.length,
-                      itemBuilder: (context, index) {
-                        final record = filteredHistory[index];
-                        final dayOfWeek = DateFormat('EEEE').format(record['date']); // Monday
-                        final date = DateFormat('dd-MMM-yy').format(record['date']); // 13-Jun-25
+                  _isLoadingHistory // Tampilkan loading jika data sedang diambil
+                      ? const Center(child: CircularProgressIndicator())
+                      : _historyError != null // Tampilkan error jika gagal
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(20.0),
+                                child: Text(
+                                  _historyError!,
+                                  style: const TextStyle(color: Colors.red),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            )
+                          : _attendanceRecords.isEmpty // Tampilkan pesan jika tidak ada data
+                              ? Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(20.0),
+                                    child: Text(
+                                      'Tidak ada riwayat absensi untuk bulan $_selectedMonth ini.',
+                                      style: Theme.of(context).textTheme.titleMedium,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                                  itemCount: _attendanceRecords.length,
+                                  itemBuilder: (context, index) {
+                                    final record = _attendanceRecords[index];
+                                    
+                                    // Pastikan checkInTime tidak null sebelum format
+                                    final dayOfWeek = record.checkInTime != null 
+                                      ? DateFormat('EEEE').format(record.checkInTime!) 
+                                      : 'N/A';
+                                    final date = record.checkInTime != null 
+                                      ? DateFormat('dd-MMM-yy').format(record.checkInTime!) 
+                                      : 'N/A';
+                                    
+                                    final checkInTimeDisplay = record.checkInTime != null
+                                        ? DateFormat('hh:mm a').format(record.checkInTime!)
+                                        : 'N/A';
+                                    final checkOutTimeDisplay = record.checkOutTime != null
+                                        ? DateFormat('hh:mm a').format(record.checkOutTime!)
+                                        : 'Belum Check Out';
+                                    
+                                    // Logika isLate: contoh jika check-in > 08:00 AM
+                                    final bool isLate = record.checkInTime != null && 
+                                                        record.checkInTime!.hour >= 8 && 
+                                                        record.checkInTime!.minute > 0;
 
-                        return HistoryAttendanceCard(
-                          dayOfWeek: dayOfWeek,
-                          date: date,
-                          checkInTime: record['check_in'],
-                          checkOutTime: record['check_out'],
-                          isLate: record['is_late'],
-                        );
-                      },
-                    ),
-                  const SizedBox(height: 100), // Padding di bawah untuk BottomNav
+                                    return Dismissible(
+                                      key: ValueKey(record.id ?? UniqueKey()), // Gunakan ID record dari API
+                                      direction: DismissDirection.endToStart,
+                                      background: Container(
+                                        alignment: Alignment.centerRight,
+                                        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                                        color: Colors.red,
+                                        child: const Icon(Icons.delete, color: Colors.white),
+                                      ),
+                                      confirmDismiss: (direction) async {
+                                        return await showDialog(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return AlertDialog(
+                                              title: const Text('Konfirmasi Hapus'),
+                                              content: const Text('Apakah Anda yakin ingin menghapus catatan absensi ini?'),
+                                              actions: <Widget>[
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(context).pop(false),
+                                                  child: const Text('Batal'),
+                                                ),
+                                                ElevatedButton(
+                                                  onPressed: () => Navigator.of(context).pop(true),
+                                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                                  child: const Text('Hapus'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      },
+                                      onDismissed: (direction) {
+                                        if (record.id != null) { // Pastikan ID record tidak null sebelum menghapus
+                                          _deleteAttendanceRecord(record.id!); // Panggil fungsi hapus
+                                        } else {
+                                          // Jika ID null (mock data tanpa ID), hapus dari UI saja
+                                          setState(() {
+                                            _attendanceRecords.removeAt(index);
+                                          });
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Catatan absensi dihapus dari UI (tanpa ID)')),
+                                          );
+                                        }
+                                      },
+                                      child: HistoryAttendanceCard(
+                                        dayOfWeek: dayOfWeek,
+                                        date: date,
+                                        checkInTime: checkInTimeDisplay, // Gunakan display string
+                                        checkOutTime: checkOutTimeDisplay, // Gunakan display string
+                                        isLate: isLate,
+                                      ),
+                                    );
+                                  },
+                                ),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
           ),
-          // Tombol toggle tema di pojok kanan atas, jika diinginkan di sini
           Positioned(
-            top: MediaQuery.of(context).padding.top + 10, // Posisi dari atas
+            top: MediaQuery.of(context).padding.top + 10,
             right: 10,
             child: IconButton(
               icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode : Icons.dark_mode, color: Colors.white),
@@ -204,12 +337,11 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
         ],
       ),
-      // BottomNavigationBar tidak lagi ada di sini, sudah dipindahkan ke MainScreen
     );
   }
 }
 
-// Widget terpisah untuk satu kartu riwayat absensi
+// Widget terpisah untuk satu kartu riwayat absensi (tetap sama)
 class HistoryAttendanceCard extends StatelessWidget {
   final String dayOfWeek;
   final String date;
@@ -230,7 +362,7 @@ class HistoryAttendanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
-      color: AppColors.historyCardBackground, // Warna abu-abu muda untuk card
+      color: AppColors.historyCardBackground,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       elevation: 2,
       child: Padding(
@@ -249,9 +381,7 @@ class HistoryAttendanceCard extends StatelessWidget {
                 ),
                 Text(
                   date,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[700],
-                      ),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
                 ),
               ],
             ),
@@ -267,7 +397,7 @@ class HistoryAttendanceCard extends StatelessWidget {
                     Text(
                       checkInTime,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: isLate ? AppColors.historyLateRed : null, // Merah jika terlambat
+                            color: isLate ? AppColors.historyLateRed : null,
                           ),
                     ),
                   ],
@@ -283,7 +413,7 @@ class HistoryAttendanceCard extends StatelessWidget {
                     Text(
                       checkOutTime,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: isLate ? AppColors.historyLateRed : null, // Merah jika terlambat
+                            color: isLate ? AppColors.historyLateRed : null,
                           ),
                     ),
                   ],
@@ -297,30 +427,27 @@ class HistoryAttendanceCard extends StatelessWidget {
   }
 }
 
-// Custom Clipper untuk memotong bentuk biru di bagian atas
+// Custom Clipper untuk memotong bentuk biru di bagian atas (tetap sama)
 class _HistoryBlueClipper extends CustomClipper<Path> {
   final double screenWidth;
-  final double clipHeight; // Tinggi total area yang di-clip (misal screenHeight * 0.4)
+  final double clipHeight;
 
   _HistoryBlueClipper(this.screenWidth, this.clipHeight);
 
   @override
   Path getClip(Size size) {
     Path path = Path();
-    // Gambar bentuk biru sesuai gambar
-    // Perhatikan koordinat untuk menciptakan lekukan yang diinginkan
-
-    path.lineTo(0, size.height * 0.6); // Mulai garis lurus dari kiri atas ke bawah
+    path.lineTo(0, size.height * 0.6);
     path.quadraticBezierTo(
-      size.width * 0.2, size.height * 0.9, // Titik kontrol untuk lekukan pertama
-      size.width * 0.5, size.height * 0.8, // Titik akhir lekukan pertama
+      size.width * 0.2, size.height * 0.9,
+      size.width * 0.5, size.height * 0.8,
     );
     path.quadraticBezierTo(
-      size.width * 0.7, size.height * 0.7, // Titik kontrol untuk lekukan kedua
-      size.width, size.height * 0.4, // Titik akhir lekukan kedua, menuju kanan atas
+      size.width * 0.7, size.height * 0.7,
+      size.width, size.height * 0.4,
     );
-    path.lineTo(size.width, 0); // Garis lurus ke kanan atas
-    path.close(); // Tutup path
+    path.lineTo(size.width, 0);
+    path.close();
 
     return path;
   }

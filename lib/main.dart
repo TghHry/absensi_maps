@@ -22,7 +22,7 @@ import 'package:absensi_maps/presentation/absensi/home/pages/home_page.dart'; //
 import 'package:absensi_maps/presentation/absensi/history/pages/history_page.dart'; // Halaman History (konten MainScreen)
 import 'package:absensi_maps/presentation/absensi/attandance/pages/attandance_page.dart'; // Halaman Kehadiran (Map/Absensi detail, konten MainScreen)
 import 'package:absensi_maps/presentation/absensi/profile/pages/profile_page.dart'; // Halaman Profile (konten MainScreen)
-import 'package:absensi_maps/presentation/absensi/edit_profile/pages/edit_profile_page.dart'; // Halaman Edit Profile
+import 'package:absensi_maps/presentation/absensi/profile/edit_profile/pages/edit_profile_page.dart'; // Halaman Edit Profile
 
 void main() async {
   // Pastikan Flutter binding sudah diinisialisasi sebelum menggunakan plugin
@@ -95,12 +95,12 @@ class MyApp extends StatelessWidget {
                 ), // Halaman History (konten MainPage)
             '/kehadiran':
                 (context) =>
-                    const KehadiranPage(), // Halaman Kehadiran (Map/Absensi detail, konten MainPage)
+                    const AttandancePage(), // Halaman Kehadiran (Map/Absensi detail, konten MainPage)
             '/profile':
                 (context) =>
                     const ProfilePage(), // Halaman Profile (konten MainPage)
-            '/edit_profile':
-                (context) => const EditProfilePage(), // Halaman Edit Profile
+            // '/edit_profile':
+            //     (context) => const EditProfilePage(), // Halaman Edit Profile
           },
         );
       },
