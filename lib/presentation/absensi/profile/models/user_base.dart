@@ -1,67 +1,65 @@
-// File: lib/models/user_base_model.dart
+// lib/models/user_model.dart
 
-import 'package:flutter/foundation.dart'; // Untuk debugPrint di helper _tryParseDateTime
+// Impor model lain yang dibutuhkan
+import 'package:absensi_maps/models/training_model.dart';
+// import 'package:absensi_maps/presentation/absensi/auth/register/models/batch_model.dart'; // Pastikan path ini benar
+import 'package:absensi_maps/models/batch_model.dart'; // Pastikan path ini benar
 
-// Helper function untuk parsing DateTime yang fleksibel
-DateTime? _tryParseDateTime(String? dateString) {
-  if (dateString == null || dateString.isEmpty) {
-    return null;
-  }
-  try {
-    return DateTime.parse(dateString);
-  } catch (e) {
-    try {
-      if (dateString.length == 19 && dateString.contains(' ')) {
-        return DateTime.parse(dateString.replaceFirst(' ', 'T') + 'Z');
-      }
-    } catch (e2) {
-      debugPrint('Warning: Could not parse date string "$dateString": $e2');
-    }
-  }
-  return null;
-}
-
-// Model pengguna dasar
-// Digunakan dalam respons login dan registrasi (karena hanya butuh data dasar)
-// Dan sebagai bagian dasar dari model profil yang lebih kompleks.
 class User {
   final int id;
   final String name;
   final String email;
-  final DateTime? emailVerifiedAt;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final String? gender;
+  final String? profilePhotoUrl;
+  final String? createdAt;
+  // [PERUBAHAN] Tambahkan properti untuk training dan batch
+  final Datum? training;
+  final BatchData? batch;
 
-  const User({
+  User({
     required this.id,
     required this.name,
     required this.email,
-    this.emailVerifiedAt,
-    required this.createdAt,
-    required this.updatedAt,
+    this.gender,
+    this.profilePhotoUrl,
+    this.createdAt,
+    // [PERUBAHAN] Tambahkan di constructor
+    this.training,
+    this.batch,
   });
 
+  // [PERUBAHAN] Factory fromJson sekarang menangani objek training dan batch
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'] as int,
-      name: json['name'] as String,
-      email: json['email'] as String,
-      emailVerifiedAt: json['email_verified_at'] != null
-          ? _tryParseDateTime(json['email_verified_at'] as String)
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
+      // Sesuaikan key dengan JSON dari API
+      gender: json['jenis_kelamin'],
+      profilePhotoUrl:
+          json['profile_photo_url'] ??
+          json['profile_photo'], // Menangani kedua kemungkinan key
+      createdAt: json['created_at'],
+      // Cek jika data training/batch ada, lalu decode dari objek nested
+      training: json['training'] != null
+          ? Datum.fromJson(json['training'])
           : null,
-      createdAt: _tryParseDateTime(json['created_at'] as String)!,
-      updatedAt: _tryParseDateTime(json['updated_at'] as String)!,
+      batch: json['batch'] != null ? BatchData.fromJson(json['batch']) : null,
     );
   }
 
+  // [PERUBAHAN] Method toJson untuk menyimpan data ke SharedPreferences
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'email': email,
-      'email_verified_at': emailVerifiedAt?.toIso8601String(),
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
+      'jenis_kelamin': gender,
+      'profile_photo_url': profilePhotoUrl,
+      'created_at': createdAt,
+      // Ubah objek training/batch menjadi JSON jika tidak null
+      'training': training?.toJson(),
+      'batch': batch?.toJson(),
     };
   }
 }

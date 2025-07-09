@@ -1,3 +1,4 @@
+import 'package:absensi_maps/utils/splash_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Untuk SystemChrome
 import 'package:provider/provider.dart';
@@ -21,8 +22,8 @@ import 'package:absensi_maps/presentation/absensi/home/pages/main_page.dart'; //
 import 'package:absensi_maps/presentation/absensi/home/pages/home_page.dart'; // Halaman Home (konten MainScreen)
 import 'package:absensi_maps/presentation/absensi/history/pages/history_page.dart'; // Halaman History (konten MainScreen)
 import 'package:absensi_maps/presentation/absensi/attandance/pages/attandance_page.dart'; // Halaman Kehadiran (Map/Absensi detail, konten MainScreen)
-import 'package:absensi_maps/presentation/absensi/profile/pages/profile_page.dart'; // Halaman Profile (konten MainScreen)
-import 'package:absensi_maps/presentation/absensi/profile/edit_profile/pages/edit_profile_page.dart'; // Halaman Edit Profile
+// import 'package:absensi_maps/presentation/absensi/profile/pages/profile_page.dart'; // Halaman Profile (konten MainScreen)
+// import 'package:absensi_maps/presentation/absensi/profile/edit_profile/pages/edit_profile_page.dart'; // Halaman Edit Profile
 
 void main() async {
   // Pastikan Flutter binding sudah diinisialisasi sebelum menggunakan plugin
@@ -77,7 +78,8 @@ class MyApp extends StatelessWidget {
           initialRoute: '/', // Halaman awal aplikasi
           routes: {
             // Rute Autentikasi
-            '/': (context) => const LoginPage(), // Halaman Login
+            '/': (context) => const SplashPage(),
+            '/login': (context) => const LoginPage(), // Halaman Login
             '/register': (context) => const RegisterPage(), // Halaman Register
             '/password':
                 (context) => const PasswordPage(), // Halaman New Password
@@ -96,9 +98,9 @@ class MyApp extends StatelessWidget {
             '/kehadiran':
                 (context) =>
                     const AttandancePage(), // Halaman Kehadiran (Map/Absensi detail, konten MainPage)
-            '/profile':
-                (context) =>
-                    const ProfilePage(), // Halaman Profile (konten MainPage)
+            // '/profile':
+            //     (context) =>
+            //         const ProfilePage(), // Halaman Profile (konten MainPage)
             // '/edit_profile':
             //     (context) => const EditProfilePage(), // Halaman Edit Profile
           },

@@ -1,10 +1,12 @@
+// lib/presentation/absensi/auth/login/login_page.dart
 
-import 'package:absensi_maps/presentation/absensi/auth/login/models/login_model.dart';
-import 'package:absensi_maps/presentation/absensi/auth/login/services/login_service.dart';
 import 'package:flutter/material.dart';
 import 'package:absensi_maps/utils/app_colors.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Untuk menyimpan data sederhana
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Untuk menyimpan token secara aman
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:absensi_maps/presentation/absensi/auth/login/models/login_model.dart';
+import 'package:absensi_maps/presentation/absensi/auth/login/services/login_service.dart';
+import 'package:flutter/foundation.dart'; // Import for debugPrint
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,16 +16,21 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // Mengubah _usernameController menjadi _emailController karena API login menggunakan email
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  bool _obscureText = true; // State lokal untuk visibility password
-  bool _rememberMe = false; // State lokal untuk "Remember me"
-  bool _isLoading = false; // State untuk indikator loading
+  bool _obscureText = true;
+  bool _rememberMe = false;
+  bool _isLoading = false;
 
-  final LoginService _loginService = LoginService(); // Inisialisasi LoginService
-  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(); // Inisialisasi Secure Storage
+  final LoginService _loginService = LoginService();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedEmail();
+  }
 
   @override
   void dispose() {
@@ -32,18 +39,31 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  /// Mengubah visibilitas teks password.
   void _togglePasswordVisibility() {
     setState(() {
       _obscureText = !_obscureText;
     });
   }
 
-  // Fungsi untuk memproses tombol Login
+  /// Memuat email yang diingat dari SharedPreferences saat inisialisasi.
+  Future<void> _loadRememberedEmail() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? rememberedEmail = prefs.getString('remembered_email');
+    if (rememberedEmail != null && rememberedEmail.isNotEmpty) {
+      setState(() {
+        _emailController.text = rememberedEmail;
+        _rememberMe = true; // Otomatis centang "Ingat saya" jika email ditemukan
+      });
+    }
+  }
+
+  /// Fungsi yang dipanggil saat tombol Login ditekan.
   void _onLoginButtonPressed() async {
     final String email = _emailController.text.trim();
     final String password = _passwordController.text.trim();
 
-    // Validasi sederhana
+    // Validasi sederhana input.
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -55,112 +75,103 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     setState(() {
-      _isLoading = true; // Tampilkan loading
+      _isLoading = true; // Tampilkan indikator loading
     });
 
     try {
-      // Panggil metode loginUser dari LoginService
+      // Memanggil layanan login untuk otentikasi pengguna.
       final LoginResponse response = await _loginService.loginUser(email, password);
 
-      // Jika login berhasil, simpan data
-      await _saveLoginData(response.data);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(response.message),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      // Navigasi ke halaman utama aplikasi dan hapus semua rute sebelumnya
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/main', // Nama rute untuk MainScreen Anda
-        (Route<dynamic> route) => false, // Ini akan menghapus semua rute sebelumnya
-      );
-
+      // Jika login berhasil, simpan token dan data pengguna.
+      if (response.token != null && response.data != null) {
+        await _saveLoginData(response.data!); // Pastikan data tidak null sebelum disimpan
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response.message),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Navigasi ke halaman utama dan hapus semua rute sebelumnya.
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/main', // Pastikan rute ini terdaftar di MaterialApp Anda
+          (Route<dynamic> route) => false,
+        );
+      } else {
+        // Handle kasus di mana token atau data null meskipun response sukses.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response.message ?? 'Login berhasil, namun data tidak lengkap.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     } catch (e) {
-      // Jika terjadi error saat login
+      // Tangani error yang terjadi selama proses login.
+      debugPrint('Error saat login: $e'); // Menggunakan debugPrint untuk logging
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Login gagal: ${e.toString()}'),
+          content: Text('Login gagal: ${e.toString().contains('Failed host lookup') ? 'Tidak ada koneksi internet.' : e.toString()}'),
           backgroundColor: Colors.red,
         ),
       );
     } finally {
       setState(() {
-        _isLoading = false; // Sembunyikan loading
+        _isLoading = false; // Sembunyikan indikator loading
       });
     }
   }
 
-  // Fungsi untuk menyimpan data login
+  /// Menyimpan token autentikasi ke FlutterSecureStorage dan data pengguna ke SharedPreferences.
   Future<void> _saveLoginData(LoginData data) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    // Simpan token menggunakan FlutterSecureStorage (terenkripsi)
+    // Simpan token menggunakan FlutterSecureStorage (terenkripsi dan aman).
     await _secureStorage.write(key: 'auth_token', value: data.token);
     debugPrint('Token disimpan dengan aman.');
 
-    // Simpan data pengguna (id, name, email) menggunakan SharedPreferences
+    // Simpan data pengguna (id, name, email) menggunakan SharedPreferences.
     await prefs.setInt('user_id', data.user.id);
     await prefs.setString('user_name', data.user.name);
     await prefs.setString('user_email', data.user.email);
     debugPrint('Data pengguna disimpan di SharedPreferences.');
 
-    // Jika "Remember me" dicentang, Anda bisa menyimpan email untuk auto-fill di kemudian hari
+    // Simpan email untuk fitur "Ingat saya" jika dicentang.
     if (_rememberMe) {
       await prefs.setString('remembered_email', data.user.email);
       debugPrint('Email diingat: ${data.user.email}');
     } else {
       await prefs.remove('remembered_email'); // Hapus jika tidak dicentang
+      debugPrint('Email tidak diingat, data dihapus dari SharedPreferences.');
     }
   }
 
-  // Fungsi placeholder untuk tombol Forgot Password
+  /// Fungsi yang dipanggil saat tombol Lupa Password ditekan.
   void _onForgotPasswordPressed() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Lupa Password ditekan!'),
+        content: Text('Anda menekan Lupa Password!'),
         duration: Duration(seconds: 2),
       ),
     );
     Navigator.pushNamed(
       context,
-      '/password',
+      '/password', // Pastikan rute ini terdaftar di MaterialApp Anda
     );
   }
 
-  // Fungsi placeholder untuk tombol Sign Up
+  /// Fungsi yang dipanggil saat tombol Daftar ditekan.
   void _onSignUpPressed() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Sign Up ditekan!'),
+        content: Text('Anda menekan Daftar!'),
         duration: Duration(seconds: 2),
       ),
     );
     Navigator.pushNamed(
       context,
-      '/register',
+      '/register', // Pastikan rute ini terdaftar di MaterialApp Anda
     );
-  }
-
-  // Fungsi untuk mengisi email jika ada yang diingat
-  @override
-  void initState() {
-    super.initState();
-    _loadRememberedEmail();
-  }
-
-  Future<void> _loadRememberedEmail() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? rememberedEmail = prefs.getString('remembered_email');
-    if (rememberedEmail != null && rememberedEmail.isNotEmpty) {
-      setState(() {
-        _emailController.text = rememberedEmail;
-        _rememberMe = true; // Set remember me true jika email ditemukan
-      });
-    }
   }
 
   @override
@@ -172,6 +183,7 @@ class _LoginPageState extends State<LoginPage> {
       backgroundColor: AppColors.loginBackgroundColor,
       body: Stack(
         children: [
+          // Bagian bawah berwarna aksen dengan radius melengkung
           Positioned(
             bottom: 0,
             left: 0,
@@ -187,12 +199,14 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
+          // Konten utama halaman login
           Positioned.fill(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
                   SizedBox(height: screenHeight * 0.15),
+                  // Judul dan sub-judul "Selamat Datang Kembali"
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Padding(
@@ -201,7 +215,7 @@ class _LoginPageState extends State<LoginPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Selamat Datang Kembali', // Disesuaikan ke Bahasa Indonesia
+                            'Selamat Datang Kembali',
                             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                                   color: AppColors.textLight,
                                   fontWeight: FontWeight.bold,
@@ -209,7 +223,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Login ke akun Anda', // Disesuaikan ke Bahasa Indonesia
+                            'Silakan masuk ke akun Anda', // Lebih natural
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                   color: AppColors.textLight.withOpacity(0.8),
                                 ),
@@ -219,6 +233,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   SizedBox(height: screenHeight * 0.05),
+                  // Kartu input login
                   Card(
                     margin: const EdgeInsets.symmetric(horizontal: 16.0),
                     shape: RoundedRectangleBorder(
@@ -231,14 +246,14 @@ class _LoginPageState extends State<LoginPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // TextFormField untuk Email (sebelumnya Username)
+                          // TextFormField untuk Email
                           TextFormField(
-                            controller: _emailController, // Menggunakan _emailController
-                            keyboardType: TextInputType.emailAddress, // Tipe keyboard email
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
                             decoration: const InputDecoration(
-                              labelText: 'Email', // Label diubah menjadi Email
+                              labelText: 'Email',
                               border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.email), // Icon email
+                              prefixIcon: Icon(Icons.email),
                             ),
                           ),
                           const SizedBox(height: 20),
@@ -259,7 +274,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          // "Remember me" dan "Forgot Password"
+                          // Bagian "Ingat saya" dan "Lupa Password?"
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -273,13 +288,13 @@ class _LoginPageState extends State<LoginPage> {
                                       });
                                     },
                                   ),
-                                  const Text('Ingat saya'), // Disesuaikan ke Bahasa Indonesia
+                                  const Text('Ingat saya'),
                                 ],
                               ),
                               TextButton(
                                 onPressed: _onForgotPasswordPressed,
                                 child: Text(
-                                  'Lupa Password?', // Disesuaikan ke Bahasa Indonesia
+                                  'Lupa Password?',
                                   style: TextStyle(
                                     color: Theme.of(context).primaryColor,
                                   ),
@@ -292,7 +307,7 @@ class _LoginPageState extends State<LoginPage> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _onLoginButtonPressed, // Nonaktifkan tombol saat loading
+                              onPressed: _isLoading ? null : _onLoginButtonPressed,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.loginButtonColor,
                                 foregroundColor: AppColors.textLight,
@@ -306,21 +321,21 @@ class _LoginPageState extends State<LoginPage> {
                                       color: Colors.white,
                                     ) // Tampilkan loading indicator
                                   : const Text(
-                                      'Login',
+                                      'Masuk', // Lebih umum dari 'Login'
                                       style: TextStyle(fontSize: 18),
                                     ),
                             ),
                           ),
                           const SizedBox(height: 20),
-                          // "Don't have account? Sign Up"
+                          // Teks "Belum punya akun?" dan tombol "Daftar"
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text("Belum punya akun?"), // Disesuaikan ke Bahasa Indonesia
+                              const Text("Belum punya akun?"),
                               TextButton(
                                 onPressed: _onSignUpPressed,
                                 child: Text(
-                                  'Daftar', // Disesuaikan ke Bahasa Indonesia
+                                  'Daftar Sekarang', // Lebih lengkap
                                   style: TextStyle(
                                     color: Theme.of(context).primaryColor,
                                   ),

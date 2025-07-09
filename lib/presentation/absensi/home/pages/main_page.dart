@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 // Import semua halaman konten yang akan diakses dari Bottom Navigation Bar
 import 'package:absensi_maps/presentation/absensi/home/pages/home_page.dart'; // Pastikan path ini benar untuk HomePage Anda
 import 'package:absensi_maps/presentation/absensi/history/pages/history_page.dart'; // Halaman History Anda
-import 'package:absensi_maps/presentation/absensi/profile/pages/profile_page.dart'; // Asumsi halaman Profile Anda
+// import 'package:absensi_maps/presentation/absensi/profile/pages/profile_page.dart'; // Asumsi halaman Profile Anda
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -27,7 +27,7 @@ class _MainPageState extends State<MainPage> {
     const HistoryPage(
       userId: 'dummy_user_id',
     ), // Index 2: History (beri dummy userId untuk UI)
-    const ProfilePage(), // Index 3: Profile
+    // const ProfilePage(), // Index 3: Profile
   ];
 
   // Callback saat item Bottom Navigation Bar ditekan
