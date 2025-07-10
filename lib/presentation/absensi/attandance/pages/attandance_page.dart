@@ -1,9 +1,8 @@
-// File: AttandancePage.dart
+// File: lib/presentation/absensi/attandance/pages/attandance_page.dart
 
-import 'package:absensi_maps/presentation/absensi/attandance/models/attandance_model.dart';
-import 'package:absensi_maps/presentation/absensi/attandance/services/attandance_service.dart'
-    show AttendanceService;
-import 'package:absensi_maps/utils/app_colors.dart' show AppColors;
+import 'package:absensi_maps/models/attandance_model.dart';
+import 'package:absensi_maps/presentation/absensi/attandance/services/attandance_service.dart';
+import 'package:absensi_maps/utils/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart'; // Untuk mendapatkan lokasi
 import 'package:geocoding/geocoding.dart'; // Untuk mendapatkan alamat dari lat/lng
@@ -24,61 +23,92 @@ class _AttandancePageState extends State<AttandancePage> {
 
   final TextEditingController _noteController = TextEditingController();
 
-  AttendanceRecord? _todayAttendance;
-  String _currentAddress =
-      'Mendapatkan lokasi...'; // Alamat yang didapat dari GPS
+  Attendance? _todayAttendance; // Menggunakan model Attendance Anda
+  String _currentAddress = 'Mendapatkan lokasi...';
   double? _currentLat;
   double? _currentLng;
 
   bool _isFetchingInitialData = true;
   bool _isLoadingApiAction = false;
   String? _errorMessage;
+  bool _isLocationPermissionsGrantedAndReady = false; // Status kesiapan lokasi
 
   final AttendanceService _attendanceService = AttendanceService();
+
+  // ***** BARU: Stream untuk jam real-time *****
+  late Stream<DateTime> _clockStream; // Deklarasikan sebagai late
 
   @override
   void initState() {
     super.initState();
+    debugPrint('AttandancePage: initState terpanggil.');
     _initializePageData();
+    _clockStream = Stream.periodic(
+      const Duration(seconds: 1),
+      (_) => DateTime.now(),
+    ); // Inisialisasi di sini
   }
 
   @override
   void dispose() {
     _noteController.dispose();
     mapController?.dispose();
+    debugPrint('AttandancePage: dispose terpanggil.');
     super.dispose();
   }
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
+    debugPrint('AttandancePage: MapController dibuat.');
     if (_currentLat != null && _currentLng != null) {
       mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(LatLng(_currentLat!, _currentLng!), 17.0),
+      );
+      debugPrint('AttandancePage: Kamera peta diupdate ke lokasi saat ini.');
+    } else {
+      debugPrint(
+        'AttandancePage: Lokasi belum tersedia, tidak bisa update kamera.',
       );
     }
   }
 
   Future<void> _initializePageData() async {
+    debugPrint('AttandancePage: _initializePageData dimulai.');
+    if (!mounted) {
+      debugPrint('AttandancePage: _initializePageData: Widget tidak mounted.');
+      return;
+    }
     setState(() {
       _isFetchingInitialData = true;
       _errorMessage = null;
+      _isLocationPermissionsGrantedAndReady = false;
     });
 
     try {
+      debugPrint('AttandancePage: Mencoba mendapatkan lokasi saat ini.');
       final Position position = await _getCurrentLocation();
       _currentLat = position.latitude;
       _currentLng = position.longitude;
+      debugPrint(
+        'AttandancePage: Lokasi didapat: Lat: $_currentLat, Lng: $_currentLng',
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isLocationPermissionsGrantedAndReady = true;
+      });
 
       _updateMapToCurrentLocation();
-      await _getAddressFromLatLng(position); // Dapatkan alamat di sini
+      await _getAddressFromLatLng(position);
+      debugPrint('AttandancePage: Alamat didapat: $_currentAddress');
       await _fetchTodayAttendanceStatus();
     } catch (e) {
-      debugPrint('Error initializing AttandancePage: $e');
+      debugPrint('AttandancePage: Error di _initializePageData: $e');
       if (!mounted) return;
       setState(() {
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
-        _currentAddress =
-            'Alamat tidak ditemukan.'; // Set alamat ke pesan error juga
+        _currentAddress = 'Alamat tidak ditemukan.';
+        _isLocationPermissionsGrantedAndReady = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -91,15 +121,18 @@ class _AttandancePageState extends State<AttandancePage> {
       setState(() {
         _isFetchingInitialData = false;
       });
+      debugPrint('AttandancePage: _initializePageData selesai.');
     }
   }
 
   Future<Position> _getCurrentLocation() async {
+    debugPrint('AttandancePage: _getCurrentLocation dimulai.');
     bool serviceEnabled;
     LocationPermission permission;
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
+      debugPrint('AttandancePage: Layanan lokasi tidak diaktifkan.');
       return Future.error(
         'Layanan lokasi tidak diaktifkan. Mohon aktifkan GPS Anda.',
       );
@@ -107,52 +140,64 @@ class _AttandancePageState extends State<AttandancePage> {
 
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
+      debugPrint('AttandancePage: Izin lokasi ditolak, meminta izin.');
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
+        debugPrint('AttandancePage: Izin lokasi masih ditolak.');
         return Future.error('Izin lokasi ditolak. Mohon izinkan akses lokasi.');
       }
     }
     if (permission == LocationPermission.deniedForever) {
+      debugPrint('AttandancePage: Izin lokasi ditolak secara permanen.');
       return Future.error(
         'Izin lokasi ditolak secara permanen. Mohon ubah di pengaturan aplikasi.',
       );
     }
 
+    debugPrint('AttandancePage: Mendapatkan posisi GPS saat ini.');
     return await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
+      // timeout: const Duration(seconds: 10),
     );
   }
 
-  // Mengkonversi lat/lng menjadi alamat (reverse geocoding)
   Future<void> _getAddressFromLatLng(Position position) async {
+    debugPrint('AttandancePage: _getAddressFromLatLng dimulai.');
     setState(() {
-      _currentAddress = 'Mendapatkan lokasi...'; // Set status loading alamat
+      _currentAddress = 'Mendapatkan lokasi...';
     });
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
-        // localeIdentifier: 'id_ID', // Opsional: Untuk bahasa Indonesia
       );
       if (!mounted) return;
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
         setState(() {
-          // COBA PRIORITASKAN ALAMAT YANG LEBIH SEDERHANA (KOTA/DISTRIK)
-          String simplifiedAddress =
-              place.locality ?? place.subLocality ?? place.street ?? '';
+          String street = place.street ?? '';
+          String subLocality = place.subLocality ?? '';
+          String locality = place.locality ?? '';
+          String subAdministrativeArea = place.subAdministrativeArea ?? '';
+          String administrativeArea = place.administrativeArea ?? '';
 
-          // Jika alamat sederhana masih kosong, baru gunakan alamat lengkap.
-          _currentAddress =
-              simplifiedAddress.isNotEmpty
-                  ? simplifiedAddress
-                  : "${place.street ?? ''}, ${place.subLocality ?? ''}, "
-                      "${place.locality ?? ''}, ${place.administrativeArea ?? ''} ${place.postalCode ?? ''}, ${place.country ?? ''}";
+          List<String> addressParts = [];
+          if (street.isNotEmpty) addressParts.add(street);
+          if (subLocality.isNotEmpty && !street.contains(subLocality))
+            addressParts.add(subLocality);
+          if (subAdministrativeArea.isNotEmpty &&
+              !subLocality.contains(subAdministrativeArea))
+            addressParts.add(subAdministrativeArea);
+          if (locality.isNotEmpty && !subAdministrativeArea.contains(locality))
+            addressParts.add(locality);
+          if (administrativeArea.isNotEmpty &&
+              !locality.contains(administrativeArea))
+            addressParts.add(administrativeArea);
 
-          // OPSIONAL: Jika alamat lengkap masih sering ditolak, pangkas menjadi maksimal X karakter
-          // if (_currentAddress.length > 100) { // Contoh: pangkas ke 100 karakter
-          //   _currentAddress = _currentAddress.substring(0, 97) + '...';
-          // }
+          _currentAddress = addressParts.join(', ');
+          if (_currentAddress.isEmpty) {
+            _currentAddress = 'Alamat tidak diketahui.';
+          }
 
           _markers.clear();
           _markers.add(
@@ -163,42 +208,59 @@ class _AttandancePageState extends State<AttandancePage> {
             ),
           );
         });
+        debugPrint(
+          'AttandancePage: Alamat dari LatLng berhasil: $_currentAddress',
+        );
       } else {
         setState(() {
-          _currentAddress = ''; // Alamat kosong jika tidak ada placemarks
+          _currentAddress = 'Alamat tidak ditemukan.';
         });
+        debugPrint('AttandancePage: Tidak ada placemarks ditemukan.');
       }
     } catch (e) {
-      debugPrint('Error getting address from location: $e');
+      debugPrint('AttandancePage: Error mendapatkan alamat dari lokasi: $e');
       if (!mounted) return;
       setState(() {
-        _currentAddress = ''; // Alamat kosong jika geocoding gagal
+        _currentAddress = 'Gagal mendapatkan alamat.';
       });
     }
   }
 
   void _updateMapToCurrentLocation() {
+    debugPrint('AttandancePage: _updateMapToCurrentLocation dimulai.');
     if (mapController != null && _currentLat != null && _currentLng != null) {
       mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(LatLng(_currentLat!, _currentLng!), 17.0),
+      );
+      debugPrint(
+        'AttandancePage: Peta diupdate ke lokasi: $_currentLat, $_currentLng',
+      );
+    } else {
+      debugPrint(
+        'AttandancePage: Tidak bisa update peta, lokasi atau mapController null.',
       );
     }
   }
 
   Future<void> _fetchTodayAttendanceStatus() async {
+    debugPrint('AttandancePage: _fetchTodayAttendanceStatus dimulai.');
     if (!mounted) return;
     setState(() {
       _isLoadingApiAction = true;
     });
     try {
-      final AttendanceRecord? status =
+      final AttendanceApiResponse response =
           await _attendanceService.getTodayAttendance();
       if (!mounted) return;
       setState(() {
-        _todayAttendance = status;
+        _todayAttendance = response.data;
+        _errorMessage = null;
       });
+      debugPrint(
+        'AttandancePage: Status absensi hari ini berhasil diambil: ${_todayAttendance?.status}',
+      );
     } catch (e) {
-      debugPrint('Error fetching today attendance status: $e');
+      debugPrint('AttandancePage: Error fetching today attendance status: $e');
       if (!mounted) return;
       setState(() {
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -208,12 +270,92 @@ class _AttandancePageState extends State<AttandancePage> {
       setState(() {
         _isLoadingApiAction = false;
       });
+      debugPrint('AttandancePage: _fetchTodayAttendanceStatus selesai.');
     }
   }
 
+  // ***** BARU: Metode untuk menampilkan dialog aksi absensi *****
+  void _showAttendanceActionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        // Logika untuk menampilkan opsi di dialog berdasarkan status absensi hari ini
+        List<Widget> options = [];
+
+        if (_todayAttendance == null || _todayAttendance?.status == 'pulang') {
+          // Belum absen atau sudah pulang: Tampilkan Check In (Masuk) dan Izin
+          options.add(
+            ListTile(
+              leading: const Icon(Icons.login),
+              title: const Text('Check In (Masuk)'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _performCheckIn(status: 'masuk');
+              },
+            ),
+          );
+          options.add(
+            ListTile(
+              leading: const Icon(Icons.event_busy),
+              title: const Text('Ajukan Izin/Cuti'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _performCheckIn(
+                  status: 'izin',
+                ); // _performCheckIn akan memicu dialog alasan
+              },
+            ),
+          );
+        } else if (_todayAttendance?.status == 'masuk' &&
+            _todayAttendance?.checkOut == null) {
+          // Sudah Check In tapi belum Check Out: Tampilkan Check Out
+          options.add(
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Check Out'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _performCheckOut();
+              },
+            ),
+          );
+        } else {
+          // Status lain (sudah izin, sudah pulang), atau belum selesai loading
+          options.add(
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: Text(
+                'Status Hari Ini: ${_todayAttendance?.status ?? 'Memuat...'}',
+              ),
+              onTap: () {
+                Navigator.of(context).pop(); // Tutup dialog
+              },
+            ),
+          );
+        }
+
+        return AlertDialog(
+          title: const Text('Pilih Aksi Absensi'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: options),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _performCheckIn({required String status}) async {
-    // Validasi: Pastikan koordinat lokasi sudah didapat
+    debugPrint(
+      'AttandancePage: _performCheckIn dimulai dengan status: $status',
+    );
     if (_currentLat == null || _currentLng == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -222,11 +364,11 @@ class _AttandancePageState extends State<AttandancePage> {
           backgroundColor: Colors.orange,
         ),
       );
-      await _initializePageData(); // Coba inisialisasi ulang
       return;
     }
-    // VALIDASI KRITIS: Pastikan _currentAddress tidak kosong
-    if (_currentAddress.isEmpty) {
+    if (_currentAddress.isEmpty ||
+        _currentAddress.contains('Mendapatkan lokasi')) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -242,6 +384,7 @@ class _AttandancePageState extends State<AttandancePage> {
     if (status == 'izin') {
       alasanIzin = await _showIzinReasonDialog();
       if (alasanIzin == null || alasanIzin.isEmpty) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Absensi izin dibatalkan atau alasan tidak diisi.'),
@@ -257,14 +400,31 @@ class _AttandancePageState extends State<AttandancePage> {
       _isLoadingApiAction = true;
     });
     try {
-      final response = await _attendanceService.checkIn(
-        status: status,
-        alasanIzin: alasanIzin,
-        checkInAddress: _currentAddress, // Teruskan alamat yang sudah didapat
-      );
+      AttendanceApiResponse response;
+      if (status == 'izin') {
+        response = await _attendanceService.submitIzin(
+          date: DateFormat(
+            'yyyy-MM-dd',
+          ).format(DateTime.now()), // Kirim tanggal hari ini
+          reason: alasanIzin!, // Alasan izin sudah divalidasi tidak null
+        );
+      } else {
+        response = await _attendanceService.checkIn(
+          status: status, // Harusnya 'masuk'
+          alasanIzin:
+              _noteController.text.isNotEmpty
+                  ? _noteController.text
+                  : null, // Mengirim catatan dari TextField
+          checkInAddress: _currentAddress,
+          latitude: _currentLat!, // Mengirim lat/lng dari state
+          longitude: _currentLng!, // Mengirim lat/lng dari state
+        );
+      }
+
       if (!mounted) return;
       setState(() {
         _todayAttendance = response.data;
+        _noteController.clear();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -272,9 +432,9 @@ class _AttandancePageState extends State<AttandancePage> {
           backgroundColor: Colors.green,
         ),
       );
-      _fetchTodayAttendanceStatus();
+      _fetchTodayAttendanceStatus(); // Refresh status setelah aksi
     } catch (e) {
-      debugPrint('Check-in failed: $e');
+      debugPrint('AttandancePage: Check-in failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -296,13 +456,14 @@ class _AttandancePageState extends State<AttandancePage> {
     TextEditingController reasonController = TextEditingController();
     return showDialog<String>(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Alasan Izin'),
           content: TextField(
             controller: reasonController,
             decoration: const InputDecoration(
-              hintText: 'Masukkan alasan izin Anda',
+              hintText: 'Masukkan alasan izin Anda (wajib)',
             ),
             maxLines: 3,
           ),
@@ -310,13 +471,22 @@ class _AttandancePageState extends State<AttandancePage> {
             TextButton(
               child: const Text('Batal'),
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(context).pop(null);
               },
             ),
             ElevatedButton(
               child: const Text('Kirim'),
               onPressed: () {
-                Navigator.of(context).pop(reasonController.text);
+                if (reasonController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Alasan izin tidak boleh kosong.'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                } else {
+                  Navigator.of(context).pop(reasonController.text.trim());
+                }
               },
             ),
           ],
@@ -327,6 +497,7 @@ class _AttandancePageState extends State<AttandancePage> {
 
   void _performCheckOut() async {
     if (_currentLat == null || _currentLng == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -335,11 +506,11 @@ class _AttandancePageState extends State<AttandancePage> {
           backgroundColor: Colors.orange,
         ),
       );
-      await _initializePageData(); // Coba inisialisasi ulang
       return;
     }
-    // VALIDASI KRITIS: Pastikan _currentAddress tidak kosong
-    if (_currentAddress.isEmpty) {
+    if (_currentAddress.isEmpty ||
+        _currentAddress.contains('Mendapatkan lokasi')) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -356,8 +527,10 @@ class _AttandancePageState extends State<AttandancePage> {
       _isLoadingApiAction = true;
     });
     try {
-      final response = await _attendanceService.checkOut(
-        checkOutAddress: _currentAddress, // Teruskan alamat yang sudah didapat
+      final AttendanceApiResponse response = await _attendanceService.checkOut(
+        checkOutAddress: _currentAddress,
+        latitude: _currentLat!,
+        longitude: _currentLng!,
       );
       if (!mounted) return;
       setState(() {
@@ -391,10 +564,8 @@ class _AttandancePageState extends State<AttandancePage> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('AttandancePage: build terpanggil.');
     final screenHeight = MediaQuery.of(context).size.height;
-    final now = DateTime.now();
-    final String formattedTime = DateFormat('hh:mm a').format(now);
-    final String formattedDate = DateFormat('EEE, dd MMMM ').format(now);
 
     String currentStatusMessage = '';
     bool showCheckInAsPresentButton = false;
@@ -412,24 +583,28 @@ class _AttandancePageState extends State<AttandancePage> {
       currentStatusMessage = 'Anda belum absen hari ini.';
       showCheckInAsPresentButton = true;
       showCheckInAsLeaveButton = true;
-    } else if (_todayAttendance?.status == 'masuk') {
-      if (_todayAttendance?.checkOutTime == null) {
+    } else if (_todayAttendance!.status == 'masuk') {
+      if (_todayAttendance!.checkOut == null) {
         currentStatusMessage =
-            'Anda sudah Check In pada ${DateFormat('HH:mm a').format(_todayAttendance!.checkInTime!)}.';
+            'Anda sudah Check In pada ${_todayAttendance!.checkIn ?? 'N/A'}.';
         showCheckOutButton = true;
       } else {
         currentStatusMessage =
-            'Anda sudah Check In & Check Out pada ${DateFormat('HH:mm a').format(_todayAttendance!.checkOutTime!)}.';
+            'Anda sudah Check In & Check Out pada ${_todayAttendance!.checkOut ?? 'N/A'}.';
       }
-    } else if (_todayAttendance?.status == 'izin') {
+    } else if (_todayAttendance!.status == 'izin') {
       currentStatusMessage =
-          'Anda sudah Izin hari ini karena ${_todayAttendance!.alasanIzin ?? 'alasan tidak dicatat'}.';
+          'Anda sudah Izin hari ini karena ${_todayAttendance!.reason ?? 'alasan tidak dicatat'}.';
     }
-
+    debugPrint(
+      'AttandancePage: GoogleMap widget akan dibuat. _isLocationPermissionsGrantedAndReady: $_isLocationPermissionsGrantedAndReady',
+    );
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
+          // Pindahkan debugPrint ini ke luar dari daftar children Stack
+
           // Peta Google Maps
           GoogleMap(
             onMapCreated: _onMapCreated,
@@ -437,15 +612,16 @@ class _AttandancePageState extends State<AttandancePage> {
               target:
                   _currentLat != null && _currentLng != null
                       ? LatLng(_currentLat!, _currentLng!)
-                      : const LatLng(-6.2088, 106.8456),
+                      : const LatLng(-6.2088, 106.8456), // Default ke Jakarta
               zoom: 15.0,
             ),
             markers: _markers,
-            myLocationButtonEnabled: true,
-            myLocationEnabled: true,
+            myLocationButtonEnabled: _isLocationPermissionsGrantedAndReady,
+            myLocationEnabled: _isLocationPermissionsGrantedAndReady,
             zoomControlsEnabled: false,
             compassEnabled: true,
           ),
+          // debugPrint('AttandancePage: GoogleMap widget selesai dibuat.'); // <--- BARIS INI JUGA DIHAPUS/DIPINDAHKAN DARI SINI
 
           // Card "Check in" di atas peta
           Positioned(

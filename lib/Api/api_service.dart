@@ -4,39 +4,36 @@ import 'dart:convert';
 import 'package:absensi_maps/models/batch_model.dart';
 import 'package:absensi_maps/models/training_model.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Import flutter_secure_storage
-import 'package:flutter/foundation.dart'; // Import foundation for debugPrint
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart'; // <--- PASTIKAN IMPORT INI ADA
 
 class ApiService {
   // BASE URL yang benar (tanpa /api di akhir)
   static const String _baseUrl = 'https://appabsensi.mobileprojp.com';
-
-  // Create storage instance
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
-  // Keys for secure storage
-  static const String _tokenKey = 'auth_token';
+  static const String tokenKey = 'auth_token';
 
   /// Saves the authentication token securely.
   static Future<void> saveToken(String token) async {
-    await _secureStorage.write(key: _tokenKey, value: token);
+    await _secureStorage.write(key: tokenKey, value: token);
     debugPrint('Token saved securely.');
   }
 
   /// Retrieves the authentication token securely.
   static Future<String?> getToken() async {
-    String? token = await _secureStorage.read(key: _tokenKey);
+    String? token = await _secureStorage.read(key: tokenKey);
     debugPrint('Token retrieved: $token');
     return token;
   }
 
   /// Deletes the authentication token securely.
   static Future<void> deleteToken() async {
-    await _secureStorage.delete(key: _tokenKey);
+    await _secureStorage.delete(key: tokenKey);
     debugPrint('Token deleted securely.');
   }
 
-  // Helper untuk membuat headers, digunakan di semua fungsi
   static Map<String, String> _getHeaders({String? token}) {
     Map<String, String> headers = {
       'Content-Type': 'application/json',
@@ -94,8 +91,42 @@ class ApiService {
     return json.decode(response.body);
   }
 
+  /// Endpoint: /api/profile (Untuk update data profil selain foto)
+  static Future<Map<String, dynamic>> updateProfileData({
+    required String token,
+    required String name,
+    String? jenisKelamin,
+    int? trainingId,
+    int? batchId,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/api/profile');
+    Map<String, dynamic> body = {
+      'name': name,
+      if (jenisKelamin != null) 'jenis_kelamin': jenisKelamin,
+      if (trainingId != null) 'training_id': trainingId,
+      if (batchId != null) 'batch_id': batchId,
+    };
+    debugPrint('Updating profile data to: $uri with body: $body');
+    final response = await http.put(
+      uri,
+      headers: _getHeaders(token: token),
+      body: jsonEncode(body),
+    );
+    debugPrint('Update profile data API response status: ${response.statusCode}');
+    debugPrint('Update profile data API response body: ${response.body}');
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      final errorData = json.decode(response.body);
+      throw Exception(errorData['message'] ?? 'Gagal memperbarui profil.');
+    }
+  }
+
   /// Endpoint: /api/login
-  static Future<Map<String, dynamic>> login(String email, String password) async {
+  static Future<Map<String, dynamic>> login(
+    String email,
+    String password,
+  ) async {
     final uri = Uri.parse('$_baseUrl/api/login');
     debugPrint('Logging in to: $uri with email: $email');
     final response = await http.post(
@@ -115,8 +146,8 @@ class ApiService {
     required String password,
     required String jenisKelamin,
     required int trainingId,
-    required int batchId, // Dibuat wajib kembali sesuai API
-    String? profilePhoto, // Opsional
+    required int batchId,
+    String? profilePhoto,
   }) async {
     final uri = Uri.parse('$_baseUrl/api/register');
     Map<String, dynamic> body = {
@@ -142,7 +173,7 @@ class ApiService {
     return json.decode(response.body);
   }
 
-  // --- FUNGSI GETTRAININGS DIPERBARUI ---
+  /// --- FUNGSI GETTRAININGS DIPERBARUI ---
   static Future<ListJurusan> getTrainings() async {
     final uri = Uri.parse('$_baseUrl/api/trainings');
     debugPrint('Fetching trainings from: $uri');
@@ -165,10 +196,7 @@ class ApiService {
   static Future<BatchResponse> getBatches() async {
     final uri = Uri.parse('$_baseUrl/api/batches');
     debugPrint('Fetching batches from: $uri');
-    final response = await http.get(
-      uri,
-      headers: _getHeaders(),
-    );
+    final response = await http.get(uri, headers: _getHeaders());
     debugPrint('Batches API response status: ${response.statusCode}');
     debugPrint('Batches API response body: ${response.body}');
     if (response.statusCode == 200) {
@@ -197,7 +225,7 @@ class ApiService {
     return json.decode(response.body);
   }
 
-  /// Endpoint: /api/absen/check-in
+   /// Endpoint: /api/absen/check-in
   static Future<Map<String, dynamic>> checkIn({
     required String token,
     required double latitude,
@@ -205,11 +233,19 @@ class ApiService {
     required String address,
   }) async {
     final uri = Uri.parse('$_baseUrl/api/absen/check-in');
+    
+    final now = DateTime.now();
+    final String currentDate = DateFormat('yyyy-MM-dd').format(now);
+    // ***** SOLUSI: UBAH FORMAT WAKTU KEMBALI KE HH:mm *****
+    final String currentTime = DateFormat('HH:mm').format(now); // <--- UBAH KE 'HH:mm'
+
     Map<String, dynamic> body = {
       'check_in_lat': latitude.toString(),
       'check_in_lng': longitude.toString(),
       'check_in_address': address,
-      'status': 'masuk', // Status selalu 'masuk' untuk endpoint ini
+      'status': 'masuk',
+      'attendance_date': currentDate,
+      'check_in': currentTime,
     };
     debugPrint('Checking in to: $uri with body: $body');
     final response = await http.post(
@@ -230,10 +266,18 @@ class ApiService {
     required String address,
   }) async {
     final uri = Uri.parse('$_baseUrl/api/absen/check-out');
+    
+    final now = DateTime.now();
+    final String currentDate = DateFormat('yyyy-MM-dd').format(now);
+    // ***** SOLUSI: UBAH FORMAT WAKTU KEMBALI KE HH:mm *****
+    final String currentTime = DateFormat('HH:mm').format(now); // <--- UBAH KE 'HH:mm'
+
     final body = {
       'check_out_lat': latitude.toString(),
       'check_out_lng': longitude.toString(),
       'check_out_address': address,
+      'attendance_date': currentDate,
+      'check_out': currentTime,
     };
     debugPrint('Checking out to: $uri with body: $body');
     final response = await http.post(
@@ -245,15 +289,11 @@ class ApiService {
     debugPrint('Check-out API response body: ${response.body}');
     return jsonDecode(response.body);
   }
-
   /// Endpoint: /api/absen/today
   static Future<Map<String, dynamic>> getTodayAttendance(String token) async {
     final uri = Uri.parse('$_baseUrl/api/absen/today');
     debugPrint('Fetching today attendance from: $uri');
-    final response = await http.get(
-      uri,
-      headers: _getHeaders(token: token),
-    );
+    final response = await http.get(uri, headers: _getHeaders(token: token));
     debugPrint('Today Attendance API response status: ${response.statusCode}');
     debugPrint('Today Attendance API response body: ${response.body}');
     return jsonDecode(response.body);
@@ -263,17 +303,18 @@ class ApiService {
   static Future<Map<String, dynamic>> getAbsenStats(String token) async {
     final uri = Uri.parse('$_baseUrl/api/absen/stats');
     debugPrint('Fetching attendance stats from: $uri');
-    final response = await http.get(
-      uri,
-      headers: _getHeaders(token: token),
-    );
+    final response = await http.get(uri, headers: _getHeaders(token: token));
     debugPrint('Attendance Stats API response status: ${response.statusCode}');
     debugPrint('Attendance Stats API response body: ${response.body}');
     return jsonDecode(response.body);
   }
 
   /// Endpoint: /api/absen/history
-  static Future<Map<String, dynamic>> getHistory(String token, {String? startDate, String? endDate}) async {
+  static Future<Map<String, dynamic>> getHistory(
+    String token, {
+    String? startDate,
+    String? endDate,
+  }) async {
     var uri = Uri.parse('$_baseUrl/api/absen/history');
     if (startDate != null && endDate != null) {
       uri = uri.replace(queryParameters: {'start': startDate, 'end': endDate});

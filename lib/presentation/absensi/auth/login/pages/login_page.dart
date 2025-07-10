@@ -1,12 +1,15 @@
 // lib/presentation/absensi/auth/login/login_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:absensi_maps/utils/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:absensi_maps/presentation/absensi/auth/login/models/login_model.dart';
-import 'package:absensi_maps/presentation/absensi/auth/login/services/login_service.dart';
-import 'package:flutter/foundation.dart'; // Import for debugPrint
+import 'package:flutter/foundation.dart'; // Import untuk debugPrint
+
+// --- IMPORT YANG SUDAH KITA SEPAKATI DAN SESUAIKAN DENGAN NAMA PROJECT ANDA ---
+import 'package:absensi_maps/api/api_service.dart';
+import 'package:absensi_maps/models/user_model.dart';
+import 'package:absensi_maps/models/login_response_model.dart';
+import 'package:absensi_maps/utils/app_colors.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -23,12 +26,12 @@ class _LoginPageState extends State<LoginPage> {
   bool _rememberMe = false;
   bool _isLoading = false;
 
-  final LoginService _loginService = LoginService();
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   @override
   void initState() {
     super.initState();
+    debugPrint('LoginPage: initState terpanggil.'); // DebugPrint
     _loadRememberedEmail();
   }
 
@@ -48,13 +51,20 @@ class _LoginPageState extends State<LoginPage> {
 
   /// Memuat email yang diingat dari SharedPreferences saat inisialisasi.
   Future<void> _loadRememberedEmail() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? rememberedEmail = prefs.getString('remembered_email');
-    if (rememberedEmail != null && rememberedEmail.isNotEmpty) {
-      setState(() {
-        _emailController.text = rememberedEmail;
-        _rememberMe = true; // Otomatis centang "Ingat saya" jika email ditemukan
-      });
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? rememberedEmail = prefs.getString('remembered_email');
+      if (rememberedEmail != null && rememberedEmail.isNotEmpty) {
+        setState(() {
+          _emailController.text = rememberedEmail;
+          _rememberMe = true;
+        });
+      }
+      debugPrint('LoginPage: Remembered email dimuat: $rememberedEmail');
+    } catch (e) {
+      debugPrint(
+        'LoginPage: Error memuat remembered email: $e',
+      ); // Tambahkan penanganan error di sini
     }
   }
 
@@ -63,8 +73,14 @@ class _LoginPageState extends State<LoginPage> {
     final String email = _emailController.text.trim();
     final String password = _passwordController.text.trim();
 
-    // Validasi sederhana input.
+    debugPrint('LoginPage: Tombol Login ditekan.');
+    debugPrint('LoginPage: Mencoba login dengan email: $email');
+
     if (email.isEmpty || password.isEmpty) {
+      if (!mounted) {
+        debugPrint('LoginPage: Widget tidak mounted saat validasi kosong.');
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Email dan password tidak boleh kosong.'),
@@ -75,74 +91,149 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     setState(() {
-      _isLoading = true; // Tampilkan indikator loading
+      _isLoading = true;
     });
 
     try {
-      // Memanggil layanan login untuk otentikasi pengguna.
-      final LoginResponse response = await _loginService.loginUser(email, password);
+      debugPrint('LoginPage: Memulai panggilan ApiService.login.');
+      final Map<String, dynamic> apiResponse = await ApiService.login(
+        email,
+        password,
+      );
+      debugPrint(
+        'LoginPage: Panggilan ApiService.login selesai. Respon: $apiResponse',
+      );
 
-      // Jika login berhasil, simpan token dan data pengguna.
-      if (response.token != null && response.data != null) {
-        await _saveLoginData(response.data!); // Pastikan data tidak null sebelum disimpan
+      final LoginResponse response = LoginResponse.fromJson(apiResponse);
+      debugPrint('LoginPage: Respon API berhasil diparsing ke LoginResponse.');
+
+      if (!mounted) {
+        debugPrint(
+          'LoginPage: Widget tidak mounted setelah login API, menghentikan eksekusi.',
+        );
+        return;
+      }
+
+      if (response.token != null && response.user != null) {
+        debugPrint(
+          'LoginPage: Token dan User ditemukan. Memulai _saveLoginData.',
+        );
+        await _saveLoginData(
+          response.token!,
+          response.user!,
+        ); // Panggil _saveLoginData
+        debugPrint(
+          'LoginPage: _saveLoginData selesai.',
+        ); // DebugPrint setelah _saveLoginData
+
+        if (!mounted) {
+          debugPrint(
+            'LoginPage: Widget tidak mounted setelah _saveLoginData, menghentikan eksekusi.',
+          );
+          return;
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(response.message),
             backgroundColor: Colors.green,
           ),
         );
-        // Navigasi ke halaman utama dan hapus semua rute sebelumnya.
+        debugPrint('LoginPage: SnackBar sukses ditampilkan.');
+
+        if (!mounted) {
+          debugPrint(
+            'LoginPage: Widget tidak mounted sebelum navigasi, menghentikan eksekusi.',
+          );
+          return;
+        }
+
+        debugPrint(
+          'LoginPage: MENCoba memanggil Navigator.pushNamedAndRemoveUntil ke /main.',
+        );
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/main', // Pastikan rute ini terdaftar di MaterialApp Anda
+          '/main', // Ini akan memanggil route '/main' yang sementara
           (Route<dynamic> route) => false,
         );
+        debugPrint(
+          'LoginPage: Navigator.pushNamedAndRemoveUntil selesai dieksekusi.',
+        );
       } else {
-        // Handle kasus di mana token atau data null meskipun response sukses.
+        debugPrint('LoginPage: Login gagal (token atau user null).');
+        if (!mounted) {
+          debugPrint(
+            'LoginPage: Widget tidak mounted saat menampilkan error login (gagal).',
+          );
+          return;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response.message ?? 'Login berhasil, namun data tidak lengkap.'),
-            backgroundColor: Colors.orange,
+            content: Text(response.message),
+            backgroundColor: Colors.red,
           ),
         );
+        debugPrint('LoginPage: SnackBar error ditampilkan.');
       }
     } catch (e) {
-      // Tangani error yang terjadi selama proses login.
-      debugPrint('Error saat login: $e'); // Menggunakan debugPrint untuk logging
+      debugPrint('LoginPage: ERROR umum saat login: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Login gagal: ${e.toString().contains('Failed host lookup') ? 'Tidak ada koneksi internet.' : e.toString()}'),
+          content: Text(
+            'Login gagal: ${e.toString().contains('Failed host lookup') ? 'Tidak ada koneksi internet.' : e.toString()}',
+          ),
           backgroundColor: Colors.red,
         ),
       );
     } finally {
-      setState(() {
-        _isLoading = false; // Sembunyikan indikator loading
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        debugPrint('LoginPage: Loading state diset false.');
+      } else {
+        debugPrint(
+          'LoginPage: Widget tidak mounted, tidak bisa set loading state.',
+        );
+      }
     }
   }
 
   /// Menyimpan token autentikasi ke FlutterSecureStorage dan data pengguna ke SharedPreferences.
-  Future<void> _saveLoginData(LoginData data) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+  Future<void> _saveLoginData(String token, User user) async {
+    debugPrint('LoginPage:_saveLoginData: Memulai penyimpanan data.');
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      debugPrint(
+        'LoginPage:_saveLoginData: SharedPreferences instance didapat.',
+      );
 
-    // Simpan token menggunakan FlutterSecureStorage (terenkripsi dan aman).
-    await _secureStorage.write(key: 'auth_token', value: data.token);
-    debugPrint('Token disimpan dengan aman.');
+      await _secureStorage.write(key: 'auth_token', value: token);
+      debugPrint('LoginPage:_saveLoginData: Token disimpan dengan aman.');
 
-    // Simpan data pengguna (id, name, email) menggunakan SharedPreferences.
-    await prefs.setInt('user_id', data.user.id);
-    await prefs.setString('user_name', data.user.name);
-    await prefs.setString('user_email', data.user.email);
-    debugPrint('Data pengguna disimpan di SharedPreferences.');
+      await prefs.setInt('user_id', user.id);
+      debugPrint('LoginPage:_saveLoginData: user_id disimpan.');
+      await prefs.setString('user_name', user.name);
+      debugPrint('LoginPage:_saveLoginData: user_name disimpan.');
+      await prefs.setString('user_email', user.email);
+      debugPrint('LoginPage:_saveLoginData: user_email disimpan.');
 
-    // Simpan email untuk fitur "Ingat saya" jika dicentang.
-    if (_rememberMe) {
-      await prefs.setString('remembered_email', data.user.email);
-      debugPrint('Email diingat: ${data.user.email}');
-    } else {
-      await prefs.remove('remembered_email'); // Hapus jika tidak dicentang
-      debugPrint('Email tidak diingat, data dihapus dari SharedPreferences.');
+      if (_rememberMe) {
+        await prefs.setString('remembered_email', user.email);
+        debugPrint('LoginPage:_saveLoginData: Email diingat: ${user.email}');
+      } else {
+        await prefs.remove('remembered_email');
+        debugPrint(
+          'LoginPage:_saveLoginData: Email tidak diingat, data dihapus.',
+        );
+      }
+      debugPrint('LoginPage:_saveLoginData: Penyimpanan data selesai.');
+    } catch (e) {
+      debugPrint(
+        'LoginPage:_saveLoginData: ERROR saat menyimpan data: $e',
+      ); // Tangkap error di sini
+      rethrow; // Lempar kembali agar ditangkap di _onLoginButtonPressed
     }
   }
 
@@ -154,10 +245,7 @@ class _LoginPageState extends State<LoginPage> {
         duration: Duration(seconds: 2),
       ),
     );
-    Navigator.pushNamed(
-      context,
-      '/password', // Pastikan rute ini terdaftar di MaterialApp Anda
-    );
+    Navigator.pushNamed(context, '/password');
   }
 
   /// Fungsi yang dipanggil saat tombol Daftar ditekan.
@@ -168,14 +256,12 @@ class _LoginPageState extends State<LoginPage> {
         duration: Duration(seconds: 2),
       ),
     );
-    Navigator.pushNamed(
-      context,
-      '/register', // Pastikan rute ini terdaftar di MaterialApp Anda
-    );
+    Navigator.pushNamed(context, '/register');
   }
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('LoginPage: build terpanggil.'); // DebugPrint
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -183,7 +269,6 @@ class _LoginPageState extends State<LoginPage> {
       backgroundColor: AppColors.loginBackgroundColor,
       body: Stack(
         children: [
-          // Bagian bawah berwarna aksen dengan radius melengkung
           Positioned(
             bottom: 0,
             left: 0,
@@ -199,14 +284,12 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
-          // Konten utama halaman login
           Positioned.fill(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
                   SizedBox(height: screenHeight * 0.15),
-                  // Judul dan sub-judul "Selamat Datang Kembali"
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Padding(
@@ -216,24 +299,27 @@ class _LoginPageState extends State<LoginPage> {
                         children: [
                           Text(
                             'Selamat Datang Kembali',
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                  color: AppColors.textLight,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.headlineMedium?.copyWith(
+                              color: AppColors.textLight,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Silakan masuk ke akun Anda', // Lebih natural
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: AppColors.textLight.withOpacity(0.8),
-                                ),
+                            'Silakan masuk ke akun Anda',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleMedium?.copyWith(
+                              color: AppColors.textLight.withOpacity(0.8),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
                   SizedBox(height: screenHeight * 0.05),
-                  // Kartu input login
                   Card(
                     margin: const EdgeInsets.symmetric(horizontal: 16.0),
                     shape: RoundedRectangleBorder(
@@ -246,7 +332,6 @@ class _LoginPageState extends State<LoginPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // TextFormField untuk Email
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
@@ -257,7 +342,6 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           const SizedBox(height: 20),
-                          // TextFormField untuk Password
                           TextFormField(
                             controller: _passwordController,
                             obscureText: _obscureText,
@@ -267,14 +351,15 @@ class _LoginPageState extends State<LoginPage> {
                               prefixIcon: const Icon(Icons.lock),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _obscureText ? Icons.visibility_off : Icons.visibility,
+                                  _obscureText
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
                                 ),
                                 onPressed: _togglePasswordVisibility,
                               ),
                             ),
                           ),
                           const SizedBox(height: 10),
-                          // Bagian "Ingat saya" dan "Lupa Password?"
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -303,31 +388,33 @@ class _LoginPageState extends State<LoginPage> {
                             ],
                           ),
                           const SizedBox(height: 20),
-                          // Tombol Login
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _onLoginButtonPressed,
+                              onPressed:
+                                  _isLoading ? null : _onLoginButtonPressed,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.loginButtonColor,
                                 foregroundColor: AppColors.textLight,
-                                padding: const EdgeInsets.symmetric(vertical: 15),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 15,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child: _isLoading
-                                  ? const CircularProgressIndicator(
-                                      color: Colors.white,
-                                    ) // Tampilkan loading indicator
-                                  : const Text(
-                                      'Masuk', // Lebih umum dari 'Login'
-                                      style: TextStyle(fontSize: 18),
-                                    ),
+                              child:
+                                  _isLoading
+                                      ? const CircularProgressIndicator(
+                                        color: Colors.white,
+                                      )
+                                      : const Text(
+                                        'Masuk',
+                                        style: TextStyle(fontSize: 18),
+                                      ),
                             ),
                           ),
                           const SizedBox(height: 20),
-                          // Teks "Belum punya akun?" dan tombol "Daftar"
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -335,7 +422,7 @@ class _LoginPageState extends State<LoginPage> {
                               TextButton(
                                 onPressed: _onSignUpPressed,
                                 child: Text(
-                                  'Daftar Sekarang', // Lebih lengkap
+                                  'Daftar Sekarang',
                                   style: TextStyle(
                                     color: Theme.of(context).primaryColor,
                                   ),

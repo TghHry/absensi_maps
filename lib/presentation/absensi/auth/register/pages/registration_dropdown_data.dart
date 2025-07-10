@@ -1,30 +1,55 @@
 // File: lib/data/registration_dropdown_data.dart
 
-import 'package:absensi_maps/presentation/absensi/auth/register/models/batch_model.dart';
-// Import model Training
+import 'package:absensi_maps/models/training_model.dart'; // Untuk model Training/Datum
+import 'package:absensi_maps/models/batch_model.dart'; // Untuk model BatchData
 
 // Daftar Training (Jurusan) yang hardcoded
-// Menggunakan List<Training> agar type-safe dan konsisten dengan model
-final List<Training> kTrainingOptions =  [
-  Training(id: 1, title: 'Data Management Staff (Operator Komputer)'),
-  Training(id: 2, title: 'Bahasa Inggris'),
-  Training(id: 3, title: 'Desainer Grafis Madya'),
-  Training(id: 4, title: 'Tata Boga'),
-  Training(id: 5, title: 'Tata Busana'),
-  Training(id: 6, title: 'Perhotelan'),
-  Training(id: 7, title: 'Teknisi Komputer'),
-  Training(id: 8, title: 'Teknisi Jaringan'),
-  Training(id: 9, title: 'Barista'),
-  Training(id: 10, title: 'Bahasa Korea'),
-  Training(id: 11, title: 'Make Up Artist'),
-  Training(id: 12, title: 'Desainer Multimedia'),
-  Training(id: 13, title: 'Content Creator'),
-  Training(id: 14, title: 'Web Programming'),
-  Training(id: 15, title: 'Digital Marketing'),
-  Training(id: 16, title: 'Mobile Programming'),
-  Training(id: 17, title: 'Akuntansi Junior'),
-  Training(id: 18, title: 'Konstruksi Bangunan dengan CAD'),
+final List<Datum> kTrainingOptions = [
+  Datum(id: 1, title: 'Data Management Staff (Operator Komputer)'),
+  Datum(id: 2, title: 'Bahasa Inggris'),
+  Datum(id: 3, title: 'Desainer Grafis Madya'),
+  Datum(id: 4, title: 'Tata Boga'),
+  Datum(id: 5, title: 'Tata Busana'),
+  Datum(id: 6, title: 'Perhotelan'),
+  Datum(id: 7, title: 'Teknisi Komputer'),
+  Datum(id: 8, title: 'Teknisi Jaringan'),
+  Datum(id: 9, title: 'Barista'),
+  Datum(id: 10, title: 'Bahasa Korea'),
+  Datum(id: 11, title: 'Make Up Artist'),
+  Datum(id: 12, title: 'Desainer Multimedia'),
+  Datum(id: 13, title: 'Content Creator'),
+  Datum(id: 14, title: 'Web Programming'),
+  Datum(id: 15, title: 'Digital Marketing'),
+  Datum(id: 16, title: 'Mobile Programming'),
+  Datum(id: 17, title: 'Akuntansi Junior'),
+  Datum(id: 18, title: 'Konstruksi Bangunan dengan CAD'),
 ];
+
+// Daftar Batch yang hardcoded
+// CONTOH DATA HARDCODED UNTUK 2 BATCH
+final List<BatchData> kBatchOptions = [
+  // Contoh Batch 1 (disesuaikan sedikit dari screenshot Postman)
+  BatchData(
+    id: 1,
+    batchKe: 'Batch 1 (Juni - Juli 2025)',
+    startDate: DateTime(2025, 6, 2),
+    endDate: DateTime(2025, 7, 17),
+    createdAt: DateTime(2025, 7, 7, 2, 4, 36),
+    updatedAt: DateTime(2025, 7, 7, 2, 4, 36),
+    // trainings: [], // Jika tidak perlu menyertakan daftar training bersarang di hardcode
+  ),
+  // Contoh Batch 2 (data dummy)
+  BatchData(
+    id: 2,
+    batchKe: 'Batch 2 (Agustus - Oktober 2025)',
+    startDate: DateTime(2025, 8, 1),
+    endDate: DateTime(2025, 10, 31),
+    createdAt: DateTime.now(), // Gunakan DateTime.now() untuk contoh
+    updatedAt: DateTime.now(),
+    // trainings: [],
+  ),
+];
+
 
 // Daftar Jenis Kelamin yang hardcoded
 final List<Map<String, String>> kJenisKelaminOptions = const [
