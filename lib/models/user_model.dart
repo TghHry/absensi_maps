@@ -15,7 +15,7 @@ class User {
   final int? batchId; // Tambahkan ini
   final int? trainingId; // Tambahkan ini
   final String? jenisKelamin; // Tambahkan ini
-  final String? profilePhoto; // Tambahkan ini
+  final String? profilePhotoPath; // Tambahkan ini
   final String? onesignalPlayerId; // Tambahkan ini
   final BatchData? batch; // Tambahkan ini
   final Datum? training; // Tambahkan ini, atau buat model Training yang lebih spesifik jika Datum tidak cukup
@@ -30,7 +30,7 @@ class User {
     this.batchId, // Diperlukan di konstruktor
     this.trainingId, // Diperlukan di konstruktor
     this.jenisKelamin, // Diperlukan di konstruktor
-    this.profilePhoto, // Diperlukan di konstruktor
+    this.profilePhotoPath, // Diperlukan di konstruktor
     this.onesignalPlayerId, // Diperlukan di konstruktor
     this.batch, // Diperlukan di konstruktor
     this.training, // Diperlukan di konstruktor
@@ -49,7 +49,7 @@ class User {
       batchId: json['batch_id'] != null ? int.tryParse(json['batch_id'].toString()) : null,
       trainingId: json['training_id'] != null ? int.tryParse(json['training_id'].toString()) : null,
       jenisKelamin: json['jenis_kelamin'] as String?,
-      profilePhoto: json['profile_photo'] as String?,
+      profilePhotoPath: json['profile_photo'] as String?,
       onesignalPlayerId: json['onesignal_player_id'] as String?,
       batch: json['batch'] == null ? null : BatchData.fromJson(json['batch'] as Map<String, dynamic>),
       training: json['training'] == null ? null : Datum.fromJson(json['training'] as Map<String, dynamic>),
@@ -67,7 +67,7 @@ class User {
       'batch_id': batchId,
       'training_id': trainingId,
       'jenis_kelamin': jenisKelamin,
-      'profile_photo': profilePhoto,
+      'profile_photo': profilePhotoPath,
       'onesignal_player_id': onesignalPlayerId,
       'batch': batch?.toJson(),
       'training': training?.toJson(),

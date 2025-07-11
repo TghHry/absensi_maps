@@ -1,11 +1,10 @@
-// lib/presentation/absensi/auth/login/login_page.dart
+// lib/presentation/absensi/auth/login/pages/login_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter/foundation.dart'; // Import untuk debugPrint
+import 'package:flutter/foundation.dart';
 
-// --- IMPORT YANG SUDAH KITA SEPAKATI DAN SESUAIKAN DENGAN NAMA PROJECT ANDA ---
 import 'package:absensi_maps/api/api_service.dart';
 import 'package:absensi_maps/models/user_model.dart';
 import 'package:absensi_maps/models/login_response_model.dart';
@@ -31,7 +30,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    debugPrint('LoginPage: initState terpanggil.'); // DebugPrint
+    debugPrint('LoginPage: initState terpanggil.');
     _loadRememberedEmail();
   }
 
@@ -42,14 +41,12 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  /// Mengubah visibilitas teks password.
   void _togglePasswordVisibility() {
     setState(() {
       _obscureText = !_obscureText;
     });
   }
 
-  /// Memuat email yang diingat dari SharedPreferences saat inisialisasi.
   Future<void> _loadRememberedEmail() async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -62,13 +59,10 @@ class _LoginPageState extends State<LoginPage> {
       }
       debugPrint('LoginPage: Remembered email dimuat: $rememberedEmail');
     } catch (e) {
-      debugPrint(
-        'LoginPage: Error memuat remembered email: $e',
-      ); // Tambahkan penanganan error di sini
+      debugPrint('LoginPage: Error memuat remembered email: $e');
     }
   }
 
-  /// Fungsi yang dipanggil saat tombol Login ditekan.
   void _onLoginButtonPressed() async {
     final String email = _emailController.text.trim();
     final String password = _passwordController.text.trim();
@@ -96,40 +90,24 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       debugPrint('LoginPage: Memulai panggilan ApiService.login.');
-      final Map<String, dynamic> apiResponse = await ApiService.login(
-        email,
-        password,
-      );
-      debugPrint(
-        'LoginPage: Panggilan ApiService.login selesai. Respon: $apiResponse',
-      );
-
+      final Map<String, dynamic> apiResponse = await ApiService.login(email, password);
+      debugPrint('LoginPage: Panggilan ApiService.login selesai. Respon: $apiResponse');
+      
       final LoginResponse response = LoginResponse.fromJson(apiResponse);
       debugPrint('LoginPage: Respon API berhasil diparsing ke LoginResponse.');
 
       if (!mounted) {
-        debugPrint(
-          'LoginPage: Widget tidak mounted setelah login API, menghentikan eksekusi.',
-        );
+        debugPrint('LoginPage: Widget tidak mounted setelah login API, menghentikan eksekusi.');
         return;
       }
 
       if (response.token != null && response.user != null) {
-        debugPrint(
-          'LoginPage: Token dan User ditemukan. Memulai _saveLoginData.',
-        );
-        await _saveLoginData(
-          response.token!,
-          response.user!,
-        ); // Panggil _saveLoginData
-        debugPrint(
-          'LoginPage: _saveLoginData selesai.',
-        ); // DebugPrint setelah _saveLoginData
-
+        debugPrint('LoginPage: Token dan User ditemukan. Memulai _saveLoginData.');
+        await _saveLoginData(response.token!, response.user!);
+        debugPrint('LoginPage: _saveLoginData selesai.');
+        
         if (!mounted) {
-          debugPrint(
-            'LoginPage: Widget tidak mounted setelah _saveLoginData, menghentikan eksekusi.',
-          );
+          debugPrint('LoginPage: Widget tidak mounted setelah _saveLoginData, menghentikan eksekusi.');
           return;
         }
 
@@ -142,29 +120,21 @@ class _LoginPageState extends State<LoginPage> {
         debugPrint('LoginPage: SnackBar sukses ditampilkan.');
 
         if (!mounted) {
-          debugPrint(
-            'LoginPage: Widget tidak mounted sebelum navigasi, menghentikan eksekusi.',
-          );
+          debugPrint('LoginPage: Widget tidak mounted sebelum navigasi, menghentikan eksekusi.');
           return;
         }
 
-        debugPrint(
-          'LoginPage: MENCoba memanggil Navigator.pushNamedAndRemoveUntil ke /main.',
-        );
+        debugPrint('LoginPage: MENCoba memanggil Navigator.pushNamedAndRemoveUntil ke /main.');
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/main', // Ini akan memanggil route '/main' yang sementara
+          '/main',
           (Route<dynamic> route) => false,
         );
-        debugPrint(
-          'LoginPage: Navigator.pushNamedAndRemoveUntil selesai dieksekusi.',
-        );
+        debugPrint('LoginPage: Navigator.pushNamedAndRemoveUntil selesai dieksekusi.');
       } else {
         debugPrint('LoginPage: Login gagal (token atau user null).');
         if (!mounted) {
-          debugPrint(
-            'LoginPage: Widget tidak mounted saat menampilkan error login (gagal).',
-          );
+          debugPrint('LoginPage: Widget tidak mounted saat menampilkan error login (gagal).');
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
@@ -180,9 +150,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Login gagal: ${e.toString().contains('Failed host lookup') ? 'Tidak ada koneksi internet.' : e.toString()}',
-          ),
+          content: Text('Login gagal: ${e.toString().contains('Failed host lookup') ? 'Tidak ada koneksi internet.' : e.toString()}'),
           backgroundColor: Colors.red,
         ),
       );
@@ -193,9 +161,7 @@ class _LoginPageState extends State<LoginPage> {
         });
         debugPrint('LoginPage: Loading state diset false.');
       } else {
-        debugPrint(
-          'LoginPage: Widget tidak mounted, tidak bisa set loading state.',
-        );
+        debugPrint('LoginPage: Widget tidak mounted, tidak bisa set loading state.');
       }
     }
   }
@@ -205,9 +171,7 @@ class _LoginPageState extends State<LoginPage> {
     debugPrint('LoginPage:_saveLoginData: Memulai penyimpanan data.');
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      debugPrint(
-        'LoginPage:_saveLoginData: SharedPreferences instance didapat.',
-      );
+      debugPrint('LoginPage:_saveLoginData: SharedPreferences instance didapat.');
 
       await _secureStorage.write(key: 'auth_token', value: token);
       debugPrint('LoginPage:_saveLoginData: Token disimpan dengan aman.');
@@ -224,16 +188,12 @@ class _LoginPageState extends State<LoginPage> {
         debugPrint('LoginPage:_saveLoginData: Email diingat: ${user.email}');
       } else {
         await prefs.remove('remembered_email');
-        debugPrint(
-          'LoginPage:_saveLoginData: Email tidak diingat, data dihapus.',
-        );
+        debugPrint('LoginPage:_saveLoginData: Email tidak diingat, data dihapus.');
       }
       debugPrint('LoginPage:_saveLoginData: Penyimpanan data selesai.');
     } catch (e) {
-      debugPrint(
-        'LoginPage:_saveLoginData: ERROR saat menyimpan data: $e',
-      ); // Tangkap error di sini
-      rethrow; // Lempar kembali agar ditangkap di _onLoginButtonPressed
+      debugPrint('LoginPage:_saveLoginData: ERROR saat menyimpan data: $e');
+      rethrow;
     }
   }
 
@@ -245,7 +205,10 @@ class _LoginPageState extends State<LoginPage> {
         duration: Duration(seconds: 2),
       ),
     );
-    Navigator.pushNamed(context, '/password');
+    Navigator.pushNamed(
+      context,
+      '/password',
+    );
   }
 
   /// Fungsi yang dipanggil saat tombol Daftar ditekan.
@@ -256,12 +219,15 @@ class _LoginPageState extends State<LoginPage> {
         duration: Duration(seconds: 2),
       ),
     );
-    Navigator.pushNamed(context, '/register');
+    Navigator.pushNamed(
+      context,
+      '/register',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('LoginPage: build terpanggil.'); // DebugPrint
+    debugPrint('LoginPage: build terpanggil.');
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -299,21 +265,17 @@ class _LoginPageState extends State<LoginPage> {
                         children: [
                           Text(
                             'Selamat Datang Kembali',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.headlineMedium?.copyWith(
-                              color: AppColors.textLight,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                  color: AppColors.textLight,
+                                  fontWeight: FontWeight.bold,
+                                ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Silakan masuk ke akun Anda',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.titleMedium?.copyWith(
-                              color: AppColors.textLight.withOpacity(0.8),
-                            ),
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: AppColors.textLight.withOpacity(0.8),
+                                ),
                           ),
                         ],
                       ),
@@ -351,9 +313,7 @@ class _LoginPageState extends State<LoginPage> {
                               prefixIcon: const Icon(Icons.lock),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _obscureText
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
+                                  _obscureText ? Icons.visibility_off : Icons.visibility,
                                 ),
                                 onPressed: _togglePasswordVisibility,
                               ),
@@ -391,27 +351,23 @@ class _LoginPageState extends State<LoginPage> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed:
-                                  _isLoading ? null : _onLoginButtonPressed,
+                              onPressed: _isLoading ? null : _onLoginButtonPressed,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.loginButtonColor,
                                 foregroundColor: AppColors.textLight,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 15,
-                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 15),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child:
-                                  _isLoading
-                                      ? const CircularProgressIndicator(
-                                        color: Colors.white,
-                                      )
-                                      : const Text(
-                                        'Masuk',
-                                        style: TextStyle(fontSize: 18),
-                                      ),
+                              child: _isLoading
+                                  ? const CircularProgressIndicator(
+                                      color: Colors.white,
+                                    )
+                                  : const Text(
+                                      'Masuk',
+                                      style: TextStyle(fontSize: 18),
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 20),

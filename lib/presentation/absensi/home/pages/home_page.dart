@@ -154,7 +154,7 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
                         'Live Attendance',

@@ -1,17 +1,13 @@
 // lib/presentation/absensi/profile/services/profile_service.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:absensi_maps/api/api_service.dart'; // Import ApiService
-// import 'package:absensi_maps/models/user_model.dart'; // User model tidak diperlukan langsung di sini
-import 'package:absensi_maps/models/profile_model.dart'; // Import ProfileResponse dan ProfileUser
+import 'package:absensi_maps/api/api_service.dart';
+import 'package:absensi_maps/models/profile_model.dart';
 
 class ProfileService {
-  /// Mengambil data profil user terbaru.
   Future<ProfileResponse> fetchUserProfile(String token) async {
     try {
-      final Map<String, dynamic> responseData = await ApiService.getProfile(
-        token,
-      );
+      final Map<String, dynamic> responseData = await ApiService.getProfile(token);
       debugPrint('Raw response from ApiService.getProfile: $responseData');
       return ProfileResponse.fromJson(responseData);
     } catch (e) {
@@ -20,7 +16,6 @@ class ProfileService {
     }
   }
 
-  /// Memperbarui foto profil.
   Future<Map<String, dynamic>> updateProfilePhoto(
     String token,
     String base64Photo,
@@ -28,12 +23,8 @@ class ProfileService {
     try {
       final Map<String, dynamic> responseData =
           await ApiService.updateProfilePhoto(
-            token: token,
-            base64Photo: base64Photo,
-          );
-      debugPrint(
-        'Raw response from ApiService.updateProfilePhoto: $responseData',
-      );
+              token: token, base64Photo: base64Photo);
+      debugPrint('Raw response from ApiService.updateProfilePhoto: $responseData');
       return responseData;
     } catch (e) {
       debugPrint('Error in updateProfilePhoto service: $e');
@@ -41,28 +32,18 @@ class ProfileService {
     }
   }
 
-  /// Memperbarui data profil lainnya (nama, jenis kelamin, dll.)
+  // Memperbarui data profil lainnya (sekarang hanya nama)
+  // Ubah parameter agar hanya menerima 'name'
   Future<ProfileResponse> updateProfileData(
-    String token, { // Pastikan named parameters
+    String token, {
     required String name,
-    String? jenisKelamin,
-    int? trainingId,
-    int? batchId,
+    // Hapus parameter jenisKelamin, trainingId, batchId dari sini
   }) async {
     try {
-      // ***** SOLUSI: CUKUP PANGGIL METODE DARI ApiService DENGAN ARGUMEN YANG BENAR *****
       final Map<String, dynamic> responseData =
           await ApiService.updateProfileData(
-            token: token,
-            name: name,
-            jenisKelamin: jenisKelamin,
-            trainingId: trainingId,
-            batchId: batchId,
-          );
-      debugPrint(
-        'Raw response from ApiService.updateProfileData: $responseData',
-      );
-      // Mengonversi respons Map<String, dynamic> menjadi ProfileResponse
+              token: token, name: name); // Hanya panggil dengan 'name'
+      debugPrint('Raw response from ApiService.updateProfileData: $responseData');
       return ProfileResponse.fromJson(responseData);
     } catch (e) {
       debugPrint('Error in updateProfileData service: $e');

@@ -23,7 +23,7 @@ class _AttandancePageState extends State<AttandancePage> {
 
   final TextEditingController _noteController = TextEditingController();
 
-  Attendance? _todayAttendance; // Menggunakan model Attendance Anda
+  Attendance? _todayAttendance;
   String _currentAddress = 'Mendapatkan lokasi...';
   double? _currentLat;
   double? _currentLng;
@@ -31,12 +31,11 @@ class _AttandancePageState extends State<AttandancePage> {
   bool _isFetchingInitialData = true;
   bool _isLoadingApiAction = false;
   String? _errorMessage;
-  bool _isLocationPermissionsGrantedAndReady = false; // Status kesiapan lokasi
+  bool _isLocationPermissionsGrantedAndReady = false;
 
   final AttendanceService _attendanceService = AttendanceService();
 
-  // ***** BARU: Stream untuk jam real-time *****
-  late Stream<DateTime> _clockStream; // Deklarasikan sebagai late
+  late Stream<DateTime> _clockStream;
 
   @override
   void initState() {
@@ -46,7 +45,7 @@ class _AttandancePageState extends State<AttandancePage> {
     _clockStream = Stream.periodic(
       const Duration(seconds: 1),
       (_) => DateTime.now(),
-    ); // Inisialisasi di sini
+    );
   }
 
   @override
@@ -157,7 +156,6 @@ class _AttandancePageState extends State<AttandancePage> {
     debugPrint('AttandancePage: Mendapatkan posisi GPS saat ini.');
     return await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
-      // timeout: const Duration(seconds: 10),
     );
   }
 
@@ -183,16 +181,21 @@ class _AttandancePageState extends State<AttandancePage> {
 
           List<String> addressParts = [];
           if (street.isNotEmpty) addressParts.add(street);
-          if (subLocality.isNotEmpty && !street.contains(subLocality))
+          if (subLocality.isNotEmpty && !street.contains(subLocality)) {
             addressParts.add(subLocality);
+          }
           if (subAdministrativeArea.isNotEmpty &&
-              !subLocality.contains(subAdministrativeArea))
+              !subLocality.contains(subAdministrativeArea)) {
             addressParts.add(subAdministrativeArea);
-          if (locality.isNotEmpty && !subAdministrativeArea.contains(locality))
+          }
+          if (locality.isNotEmpty &&
+              !subAdministrativeArea.contains(locality)) {
             addressParts.add(locality);
+          }
           if (administrativeArea.isNotEmpty &&
-              !locality.contains(administrativeArea))
+              !locality.contains(administrativeArea)) {
             addressParts.add(administrativeArea);
+          }
 
           _currentAddress = addressParts.join(', ');
           if (_currentAddress.isEmpty) {
@@ -274,23 +277,20 @@ class _AttandancePageState extends State<AttandancePage> {
     }
   }
 
-  // ***** BARU: Metode untuk menampilkan dialog aksi absensi *****
   void _showAttendanceActionDialog() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        // Logika untuk menampilkan opsi di dialog berdasarkan status absensi hari ini
         List<Widget> options = [];
 
         if (_todayAttendance == null || _todayAttendance?.status == 'pulang') {
-          // Belum absen atau sudah pulang: Tampilkan Check In (Masuk) dan Izin
           options.add(
             ListTile(
               leading: const Icon(Icons.login),
               title: const Text('Check In (Masuk)'),
               onTap: () {
                 Navigator.of(context).pop();
-                _performCheckIn(status: 'masuk');
+                _performCheckIn();
               },
             ),
           );
@@ -300,15 +300,12 @@ class _AttandancePageState extends State<AttandancePage> {
               title: const Text('Ajukan Izin/Cuti'),
               onTap: () {
                 Navigator.of(context).pop();
-                _performCheckIn(
-                  status: 'izin',
-                ); // _performCheckIn akan memicu dialog alasan
+                _performCheckIn(isIzin: true);
               },
             ),
           );
         } else if (_todayAttendance?.status == 'masuk' &&
             _todayAttendance?.checkOut == null) {
-          // Sudah Check In tapi belum Check Out: Tampilkan Check Out
           options.add(
             ListTile(
               leading: const Icon(Icons.logout),
@@ -320,7 +317,6 @@ class _AttandancePageState extends State<AttandancePage> {
             ),
           );
         } else {
-          // Status lain (sudah izin, sudah pulang), atau belum selesai loading
           options.add(
             ListTile(
               leading: const Icon(Icons.info_outline),
@@ -328,7 +324,7 @@ class _AttandancePageState extends State<AttandancePage> {
                 'Status Hari Ini: ${_todayAttendance?.status ?? 'Memuat...'}',
               ),
               onTap: () {
-                Navigator.of(context).pop(); // Tutup dialog
+                Navigator.of(context).pop();
               },
             ),
           );
@@ -350,10 +346,8 @@ class _AttandancePageState extends State<AttandancePage> {
     );
   }
 
-  void _performCheckIn({required String status}) async {
-    debugPrint(
-      'AttandancePage: _performCheckIn dimulai dengan status: $status',
-    );
+  void _performCheckIn({bool isIzin = false}) async {
+    debugPrint('AttandancePage: _performCheckIn dimulai. isIzin: $isIzin');
     if (_currentLat == null || _currentLng == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -381,7 +375,7 @@ class _AttandancePageState extends State<AttandancePage> {
     }
 
     String? alasanIzin;
-    if (status == 'izin') {
+    if (isIzin) {
       alasanIzin = await _showIzinReasonDialog();
       if (alasanIzin == null || alasanIzin.isEmpty) {
         if (!mounted) return;
@@ -401,23 +395,18 @@ class _AttandancePageState extends State<AttandancePage> {
     });
     try {
       AttendanceApiResponse response;
-      if (status == 'izin') {
+      if (isIzin) {
         response = await _attendanceService.submitIzin(
-          date: DateFormat(
-            'yyyy-MM-dd',
-          ).format(DateTime.now()), // Kirim tanggal hari ini
-          reason: alasanIzin!, // Alasan izin sudah divalidasi tidak null
+          date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          reason: alasanIzin!,
         );
       } else {
         response = await _attendanceService.checkIn(
-          status: status, // Harusnya 'masuk'
           alasanIzin:
-              _noteController.text.isNotEmpty
-                  ? _noteController.text
-                  : null, // Mengirim catatan dari TextField
+              _noteController.text.isNotEmpty ? _noteController.text : null,
           checkInAddress: _currentAddress,
-          latitude: _currentLat!, // Mengirim lat/lng dari state
-          longitude: _currentLng!, // Mengirim lat/lng dari state
+          latitude: _currentLat!,
+          longitude: _currentLng!,
         );
       }
 
@@ -432,14 +421,14 @@ class _AttandancePageState extends State<AttandancePage> {
           backgroundColor: Colors.green,
         ),
       );
-      _fetchTodayAttendanceStatus(); // Refresh status setelah aksi
+      _fetchTodayAttendanceStatus();
     } catch (e) {
-      debugPrint('AttandancePage: Check-in failed: $e');
+      debugPrint('AttandancePage: Aksi absensi gagal: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Check-in gagal: ${e.toString().replaceFirst('Exception: ', '')}',
+            'Aksi absensi gagal: ${e.toString().replaceFirst('Exception: ', '')}',
           ),
           backgroundColor: Colors.red,
         ),
@@ -464,6 +453,7 @@ class _AttandancePageState extends State<AttandancePage> {
             controller: reasonController,
             decoration: const InputDecoration(
               hintText: 'Masukkan alasan izin Anda (wajib)',
+              border: OutlineInputBorder(),
             ),
             maxLines: 3,
           ),
@@ -575,6 +565,7 @@ class _AttandancePageState extends State<AttandancePage> {
     final bool buttonsDisabled =
         _isLoadingApiAction || _isFetchingInitialData || _errorMessage != null;
 
+    // Logic untuk menentukan status dan tombol yang ditampilkan
     if (_isFetchingInitialData) {
       currentStatusMessage = 'Memuat lokasi & status absensi...';
     } else if (_errorMessage != null) {
@@ -596,15 +587,11 @@ class _AttandancePageState extends State<AttandancePage> {
       currentStatusMessage =
           'Anda sudah Izin hari ini karena ${_todayAttendance!.reason ?? 'alasan tidak dicatat'}.';
     }
-    debugPrint(
-      'AttandancePage: GoogleMap widget akan dibuat. _isLocationPermissionsGrantedAndReady: $_isLocationPermissionsGrantedAndReady',
-    );
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Pindahkan debugPrint ini ke luar dari daftar children Stack
-
           // Peta Google Maps
           GoogleMap(
             onMapCreated: _onMapCreated,
@@ -621,7 +608,6 @@ class _AttandancePageState extends State<AttandancePage> {
             zoomControlsEnabled: false,
             compassEnabled: true,
           ),
-          // debugPrint('AttandancePage: GoogleMap widget selesai dibuat.'); // <--- BARIS INI JUGA DIHAPUS/DIPINDAHKAN DARI SINI
 
           // Card "Check in" di atas peta
           Positioned(
@@ -644,248 +630,268 @@ class _AttandancePageState extends State<AttandancePage> {
                   ),
                 ],
               ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(25.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Absensi Hari Ini',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                    const SizedBox(height: 25),
-                    // Your Location Section
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.location_on,
-                          color: Colors.black,
-                          size: 28,
+              // --- RefreshIndicator ditambahkan di sini ---
+              child: RefreshIndicator(
+                onRefresh:
+                    _initializePageData, // Panggil metode untuk refresh semua data
+                color: AppColors.loginButtonColor, // Warna indikator refresh
+                backgroundColor: Colors.white, // Latar belakang indikator
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(25.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Absensi Hari Ini',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Lokasi Anda',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textDark,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              _isFetchingInitialData &&
-                                      _currentAddress == 'Mendapatkan lokasi...'
-                                  ? const CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  )
-                                  : Text(
-                                    _currentAddress,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyMedium?.copyWith(
-                                      color: Colors.grey[700],
-                                      height: 1.5,
-                                    ),
+                      ),
+                      const SizedBox(height: 25),
+                      // Your Location Section
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.location_on,
+                            color: Colors.black,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Lokasi Anda',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textDark,
                                   ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 25),
-                    // Note (Optional) Section
-                    const Divider(height: 1, thickness: 1, color: Colors.grey),
-                    const SizedBox(height: 15),
-                    Row(
-                      children: [
-                        const Icon(Icons.notes, color: Colors.black, size: 24),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Catatan (Opsional)',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _noteController,
-                      decoration: InputDecoration(
-                        hintText: 'Tambahkan catatan jika perlu...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[200],
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 15,
-                          vertical: 10,
-                        ),
-                      ),
-                      maxLines: 2,
-                    ),
-                    const SizedBox(height: 25),
-                    // Status Absensi Hari Ini
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child:
-                          _isFetchingInitialData
-                              ? const CircularProgressIndicator(strokeWidth: 2)
-                              : Text(
-                                'Status Absensi : $currentStatusMessage',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.titleMedium?.copyWith(
-                                  color:
-                                      (currentStatusMessage.contains('Error') ||
-                                              currentStatusMessage.contains(
-                                                'ditolak',
-                                              ))
-                                          ? Colors.red
-                                          : (currentStatusMessage.contains(
-                                                'Check In pada',
-                                              ) ||
-                                              currentStatusMessage.contains(
-                                                'Izin hari ini',
-                                              ) ||
-                                              currentStatusMessage.contains(
-                                                'Check Out pada',
-                                              ))
-                                          ? Colors.green
-                                          : AppColors.textDark,
-                                  fontWeight: FontWeight.bold,
                                 ),
-                              ),
-                    ),
-                    const SizedBox(height: 10),
-                    // Tombol Aksi (Check In / Check Out)
-                    SizedBox(
-                      width: double.infinity,
-                      child:
-                          _isLoadingApiAction
-                              ? const Center(child: CircularProgressIndicator())
-                              : Column(
-                                children: [
-                                  if (showCheckInAsPresentButton)
-                                    ElevatedButton(
-                                      onPressed:
-                                          buttonsDisabled
-                                              ? null
-                                              : () => _performCheckIn(
-                                                status: 'masuk',
-                                              ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            AppColors.loginButtonColor,
-                                        foregroundColor: AppColors.textLight,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 15,
+                                const SizedBox(height: 5),
+                                _isFetchingInitialData &&
+                                        _currentAddress ==
+                                            'Mendapatkan lokasi...'
+                                    ? const CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    )
+                                    : Text(
+                                      _currentAddress,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium?.copyWith(
+                                        color: Colors.grey[700],
+                                        height: 1.5,
+                                      ),
+                                    ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 25),
+                      // Note (Optional) Section
+                      const Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 15),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.notes,
+                            color: Colors.black,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Catatan (Opsional)',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _noteController,
+                        decoration: InputDecoration(
+                          hintText: 'Tambahkan catatan jika perlu...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey[200],
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 15,
+                            vertical: 10,
+                          ),
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 25),
+                      // Status Absensi Hari Ini
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child:
+                            _isFetchingInitialData
+                                ? const CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                )
+                                : Text(
+                                  'Status Absensi : $currentStatusMessage',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium?.copyWith(
+                                    color:
+                                        (currentStatusMessage.contains(
+                                                  'Error',
+                                                ) ||
+                                                currentStatusMessage.contains(
+                                                  'ditolak',
+                                                ))
+                                            ? Colors.red
+                                            : (currentStatusMessage.contains(
+                                                  'Check In pada',
+                                                ) ||
+                                                currentStatusMessage.contains(
+                                                  'Izin hari ini',
+                                                ) ||
+                                                currentStatusMessage.contains(
+                                                  'Check Out pada',
+                                                ))
+                                            ? Colors.green
+                                            : AppColors.textDark,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                      ),
+                      const SizedBox(height: 10),
+                      // Tombol Aksi (Check In / Check Out)
+                      SizedBox(
+                        width: double.infinity,
+                        child:
+                            _isLoadingApiAction
+                                ? const Center(
+                                  child: CircularProgressIndicator(),
+                                )
+                                : Column(
+                                  children: [
+                                    if (showCheckInAsPresentButton)
+                                      ElevatedButton(
+                                        onPressed:
+                                            buttonsDisabled
+                                                ? null
+                                                : () => _performCheckIn(),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              AppColors.loginButtonColor,
+                                          foregroundColor: AppColors.textLight,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 15,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              15,
+                                            ),
+                                          ),
                                         ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            15,
+                                        child: const Text(
+                                          'Check In (Masuk)',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                       ),
-                                      child: const Text(
-                                        'Check In (Masuk)',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
+                                    if (showCheckInAsPresentButton &&
+                                        showCheckInAsLeaveButton)
+                                      const SizedBox(height: 10),
+                                    if (showCheckInAsLeaveButton)
+                                      ElevatedButton(
+                                        onPressed:
+                                            buttonsDisabled
+                                                ? null
+                                                : () => _performCheckIn(
+                                                  isIzin: true,
+                                                ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              AppColors.loginAccentColor,
+                                          foregroundColor: AppColors.textDark,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 15,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              15,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                  if (showCheckInAsPresentButton &&
-                                      showCheckInAsLeaveButton)
-                                    const SizedBox(height: 10),
-                                  if (showCheckInAsLeaveButton)
-                                    ElevatedButton(
-                                      onPressed:
-                                          buttonsDisabled
-                                              ? null
-                                              : () => _performCheckIn(
-                                                status: 'izin',
-                                              ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            AppColors.loginAccentColor,
-                                        foregroundColor: AppColors.textDark,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 15,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            15,
+                                        child: const Text(
+                                          'Check In (Izin)',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                       ),
-                                      child: const Text(
-                                        'Check In (Izin)',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
+                                    if (showCheckOutButton)
+                                      ElevatedButton(
+                                        onPressed:
+                                            buttonsDisabled
+                                                ? null
+                                                : _performCheckOut,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              AppColors.loginButtonColor,
+                                          foregroundColor: AppColors.textLight,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 15,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              15,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                  if (showCheckOutButton)
-                                    ElevatedButton(
-                                      onPressed:
-                                          buttonsDisabled
-                                              ? null
-                                              : _performCheckOut,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            AppColors.loginButtonColor,
-                                        foregroundColor: AppColors.textLight,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 15,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            15,
+                                        child: const Text(
+                                          'Check Out',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                       ),
-                                      child: const Text(
-                                        'Check Out',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                    if (!showCheckInAsPresentButton &&
+                                        !showCheckInAsLeaveButton &&
+                                        !showCheckOutButton &&
+                                        !buttonsDisabled)
+                                      Text(
+                                        'Status terakhir: $currentStatusMessage',
+                                        textAlign: TextAlign.center,
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.bodyMedium,
                                       ),
-                                    ),
-                                  if (!showCheckInAsPresentButton &&
-                                      !showCheckInAsLeaveButton &&
-                                      !showCheckOutButton &&
-                                      !buttonsDisabled)
-                                    Text(
-                                      'Status terakhir: $currentStatusMessage',
-                                      textAlign: TextAlign.center,
-                                      style:
-                                          Theme.of(
-                                            context,
-                                          ).textTheme.bodyMedium,
-                                    ),
-                                ],
-                              ),
-                    ),
-                  ],
+                                  ],
+                                ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

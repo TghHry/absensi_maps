@@ -1,15 +1,12 @@
-// lib/api/api_service.dart
-
 import 'dart:convert';
 import 'package:absensi_maps/models/batch_model.dart';
 import 'package:absensi_maps/models/training_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
-import 'package:intl/intl.dart'; // <--- PASTIKAN IMPORT INI ADA
+import 'package:intl/intl.dart'; // PASTIKAN IMPORT INI ADA
 
 class ApiService {
-  // BASE URL yang benar (tanpa /api di akhir)
   static const String _baseUrl = 'https://appabsensi.mobileprojp.com';
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
@@ -86,7 +83,9 @@ class ApiService {
       headers: _getHeaders(token: token),
       body: jsonEncode(body),
     );
-    debugPrint('Update profile photo API response status: ${response.statusCode}');
+    debugPrint(
+      'Update profile photo API response status: ${response.statusCode}',
+    );
     debugPrint('Update profile photo API response body: ${response.body}');
     return json.decode(response.body);
   }
@@ -95,25 +94,26 @@ class ApiService {
   static Future<Map<String, dynamic>> updateProfileData({
     required String token,
     required String name,
-    String? jenisKelamin,
-    int? trainingId,
-    int? batchId,
+    // Hapus parameter jenisKelamin, trainingId, batchId dari sini
   }) async {
     final uri = Uri.parse('$_baseUrl/api/profile');
     Map<String, dynamic> body = {
-      'name': name,
-      if (jenisKelamin != null) 'jenis_kelamin': jenisKelamin,
-      if (trainingId != null) 'training_id': trainingId,
-      if (batchId != null) 'batch_id': batchId,
+      'name': name, // Hanya kirim 'name'
     };
-    debugPrint('Updating profile data to: $uri with body: $body');
+    debugPrint(
+      'ApiService: Mengirim UPDATE PROFILE DENGAN BODY: ${jsonEncode(body)}',
+    );
     final response = await http.put(
       uri,
       headers: _getHeaders(token: token),
       body: jsonEncode(body),
     );
-    debugPrint('Update profile data API response status: ${response.statusCode}');
-    debugPrint('Update profile data API response body: ${response.body}');
+    debugPrint(
+      'ApiService: Update profile data API response status: ${response.statusCode}',
+    );
+    debugPrint(
+      'ApiService: Update profile data API response body: ${response.body}',
+    );
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
@@ -121,7 +121,7 @@ class ApiService {
       throw Exception(errorData['message'] ?? 'Gagal memperbarui profil.');
     }
   }
-
+  
   /// Endpoint: /api/login
   static Future<Map<String, dynamic>> login(
     String email,
@@ -225,7 +225,7 @@ class ApiService {
     return json.decode(response.body);
   }
 
-   /// Endpoint: /api/absen/check-in
+  /// Endpoint: /api/absen/check-in
   static Future<Map<String, dynamic>> checkIn({
     required String token,
     required double latitude,
@@ -233,11 +233,12 @@ class ApiService {
     required String address,
   }) async {
     final uri = Uri.parse('$_baseUrl/api/absen/check-in');
-    
+
     final now = DateTime.now();
     final String currentDate = DateFormat('yyyy-MM-dd').format(now);
-    // ***** SOLUSI: UBAH FORMAT WAKTU KEMBALI KE HH:mm *****
-    final String currentTime = DateFormat('HH:mm').format(now); // <--- UBAH KE 'HH:mm'
+    final String currentTime = DateFormat(
+      'HH:mm',
+    ).format(now); // <-- Format HH:mm
 
     Map<String, dynamic> body = {
       'check_in_lat': latitude.toString(),
@@ -266,11 +267,12 @@ class ApiService {
     required String address,
   }) async {
     final uri = Uri.parse('$_baseUrl/api/absen/check-out');
-    
+
     final now = DateTime.now();
     final String currentDate = DateFormat('yyyy-MM-dd').format(now);
-    // ***** SOLUSI: UBAH FORMAT WAKTU KEMBALI KE HH:mm *****
-    final String currentTime = DateFormat('HH:mm').format(now); // <--- UBAH KE 'HH:mm'
+    final String currentTime = DateFormat(
+      'HH:mm',
+    ).format(now); // <-- Format HH:mm
 
     final body = {
       'check_out_lat': latitude.toString(),
@@ -289,6 +291,7 @@ class ApiService {
     debugPrint('Check-out API response body: ${response.body}');
     return jsonDecode(response.body);
   }
+
   /// Endpoint: /api/absen/today
   static Future<Map<String, dynamic>> getTodayAttendance(String token) async {
     final uri = Uri.parse('$_baseUrl/api/absen/today');
@@ -326,25 +329,33 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  static Future<Map<String, dynamic>> deleteAttendance({
-    required String token,
-    required int id,
-  }) async {
-    final uri = Uri.parse('$_baseUrl/api/absen/$id');
-    debugPrint('Deleting attendance at: $uri');
+ static Future<Map<String, dynamic>> deleteAttendance({
+  required String token,
+  required int id, // ID dari record absensi yang akan dihapus
+}) async {
+  final uri = Uri.parse('$_baseUrl/api/absen/$id'); // Endpoint DELETE: /api/absen/{id}
+  debugPrint('ApiService: Mengirim DELETE request ke: $uri');
+  try {
     final response = await http.delete(
       uri,
-      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+      // Gunakan _getHeaders untuk konsistensi
+      headers: _getHeaders(token: token), // Perbaikan: Gunakan _getHeaders
     );
 
-    debugPrint('Delete Attendance API response status: ${response.statusCode}');
-    debugPrint('Delete Attendance API response body: ${response.body}');
+    debugPrint('ApiService: Delete Attendance API response status: ${response.statusCode}');
+    debugPrint('ApiService: Delete Attendance API response body: ${response.body}');
 
-    final data = json.decode(response.body);
+    // Perbaikan: Lakukan check status code di ApiService juga
     if (response.statusCode == 200) {
-      return data;
+      return json.decode(response.body);
     } else {
-      throw Exception(data['message'] ?? 'Gagal menghapus data absen');
+      final errorData = json.decode(response.body);
+      // Lempar Exception dengan pesan dari API jika ada, atau pesan default
+      throw Exception(errorData['message'] ?? 'Gagal menghapus data absen. Status: ${response.statusCode}');
     }
+  } catch (e) {
+    debugPrint('ApiService: Error saat menghapus absensi: $e');
+    throw Exception('Terjadi kesalahan jaringan/server saat menghapus absensi: $e'); // Lempar error untuk ditangani lebih lanjut
   }
+}
 }

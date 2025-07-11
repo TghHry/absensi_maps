@@ -1,6 +1,6 @@
-// File: lib/data/registration_dropdown_data.dart
+// lib/data/registration_dropdown_data.dart
 
-import 'package:absensi_maps/models/training_model.dart'; // Untuk model Training/Datum
+import 'package:absensi_maps/models/training_model.dart'; // Untuk model Datum
 import 'package:absensi_maps/models/batch_model.dart'; // Untuk model BatchData
 
 // Daftar Training (Jurusan) yang hardcoded
@@ -26,28 +26,9 @@ final List<Datum> kTrainingOptions = [
 ];
 
 // Daftar Batch yang hardcoded
-// CONTOH DATA HARDCODED UNTUK 2 BATCH
 final List<BatchData> kBatchOptions = [
-  // Contoh Batch 1 (disesuaikan sedikit dari screenshot Postman)
-  BatchData(
-    id: 1,
-    batchKe: 'Batch 1 (Juni - Juli 2025)',
-    startDate: DateTime(2025, 6, 2),
-    endDate: DateTime(2025, 7, 17),
-    createdAt: DateTime(2025, 7, 7, 2, 4, 36),
-    updatedAt: DateTime(2025, 7, 7, 2, 4, 36),
-    // trainings: [], // Jika tidak perlu menyertakan daftar training bersarang di hardcode
-  ),
-  // Contoh Batch 2 (data dummy)
-  BatchData(
-    id: 2,
-    batchKe: 'Batch 2 (Agustus - Oktober 2025)',
-    startDate: DateTime(2025, 8, 1),
-    endDate: DateTime(2025, 10, 31),
-    createdAt: DateTime.now(), // Gunakan DateTime.now() untuk contoh
-    updatedAt: DateTime.now(),
-    // trainings: [],
-  ),
+  BatchData(id: 1, batchKe: 'Batch 1 (Juni - Juli 2025)', startDate: DateTime(2025, 6, 2), endDate: DateTime(2025, 7, 17)),
+  // BatchData(id: 2, batchKe: 'Batch 2 (Agustus - Oktober 2025)', startDate: DateTime(2025, 8, 1), endDate: DateTime(2025, 10, 31)),
 ];
 
 

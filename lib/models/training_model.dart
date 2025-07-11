@@ -25,45 +25,40 @@ class ListJurusan {
 }
 
 class Datum {
-  int id; // Dibuat nullable agar sesuai contoh API (jika ID bisa null atau string)
-  String? title; // Dibuat nullable
-  String? description; // <-- TAMBAHKAN INI
-  Pivot? pivot; // <-- TAMBAHKAN INI (jika API Anda mengembalikan objek pivot untuk training)
-  int? participantCount; // <-- Tambahkan ini jika respons API Anda untuk training memiliki properti ini.
-                        // Saya menambahkannya sebagai placeholder karena Anda menggunakannya di profile_page sebelumnya.
+  int id; // Asumsi ID selalu ada
+  String? title;
+  String? description;
+  Pivot? pivot;
+  int? participantCount; // Tambahkan ini jika ada di API
 
   Datum({
     required this.id,
     this.title,
-    this.description, // Tambahkan ke konstruktor
-    this.pivot, // Tambahkan ke konstruktor
-    this.participantCount, // Tambahkan ke konstruktor
+    this.description,
+    this.pivot,
+    this.participantCount,
   });
 
   factory Datum.fromJson(Map<String, dynamic> json) => Datum(
-        id: json["id"] as int, // Casting aman ke int?
-        title: json["title"] as String?, // Casting aman ke String?
-        description: json["description"] as String?, // <-- PARSING INI
-        pivot: json["pivot"] == null // <-- PARSING INI
+        id: json["id"] as int, // Parse sebagai int non-nullable
+        title: json["title"] as String?,
+        description: json["description"] as String?,
+        pivot: json["pivot"] == null
             ? null
             : Pivot.fromJson(json["pivot"] as Map<String, dynamic>),
-        participantCount: json["participant_count"] == null // <-- PARSING INI jika tersedia
-            ? null
-            : json["participant_count"] as int?,
+        participantCount: json["participant_count"] as int?,
       );
 
   Map<String, dynamic> toJson() => {
         "id": id,
         "title": title,
-        "description": description, // Tambahkan ke toJson
-        "pivot": pivot?.toJson(), // Tambahkan ke toJson
-        "participant_count": participantCount, // Tambahkan ke toJson
+        "description": description,
+        "pivot": pivot?.toJson(),
+        "participant_count": participantCount,
       };
 }
 
-// Definisikan kelas Pivot jika belum ada di file ini atau file yang di-share
 class Pivot {
-  // Asumsi ini adalah string dari respons API berdasarkan kode Anda sebelumnya
   String? trainingBatchId;
   String? trainingId;
 
