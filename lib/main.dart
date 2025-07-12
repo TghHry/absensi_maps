@@ -3,14 +3,13 @@
 import 'package:absensi_maps/utils/splash_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+// import 'package:provider/provider.dart'; // <<< HAPUS: Tidak lagi perlu jika tidak ada Provider lain
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-// --- Import Theme ---
-import 'package:absensi_maps/features/app_themes.dart';
-import 'package:absensi_maps/features/theme_provider.dart';
-import 'package:absensi_maps/features/theme_storage.dart';
+// --- HAPUS: Import ThemeProvider dan AppThemes (jika AppThemes hanya untuk dark mode) ---
+// import 'package:absensi_maps/features/app_themes.dart';
+// import 'package:absensi_maps/features/theme_provider.dart';
 
 // --- Import Halaman-halaman UI Aplikasi ---
 import 'package:absensi_maps/presentation/absensi/auth/login/pages/login_page.dart';
@@ -18,23 +17,16 @@ import 'package:absensi_maps/presentation/absensi/auth/password/pages/password_p
 import 'package:absensi_maps/presentation/absensi/auth/register/pages/register_page.dart';
 
 import 'package:absensi_maps/presentation/absensi/home/pages/main_page.dart';
-import 'package:absensi_maps/presentation/absensi/home/pages/home_page.dart';
-import 'package:absensi_maps/presentation/absensi/history/pages/history_page.dart';
-import 'package:absensi_maps/presentation/absensi/attandance/pages/attandance_page.dart';
-import 'package:absensi_maps/presentation/absensi/profile/pages/profile_page.dart';
-
-
 
 // ***** BARU: Import untuk inisialisasi data lokal DateFormat *****
-import 'package:intl/date_symbol_data_local.dart'; // <--- TAMBAHKAN INI
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ***** BARU: Panggil initializeDateFormatting di sini *****
-  await initializeDateFormatting('id_ID', null); // <--- TAMBAHKAN INI (untuk bahasa Indonesia)
-                                                // Jika Anda menggunakan lokal lain, sesuaikan 'id_ID'
-  
+  await initializeDateFormatting('id_ID', null);
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -43,17 +35,12 @@ void main() async {
     ),
   );
 
-  final sharedPreferences = await SharedPreferences.getInstance();
-  const flutterSecureStorage = FlutterSecureStorage();
+  final sharedPreferences = await SharedPreferences.getInstance(); // Variabel ini sekarang tidak digunakan di sini, bisa dihapus jika tidak ada keperluan lain
+  const flutterSecureStorage = FlutterSecureStorage(); // Variabel ini juga tidak digunakan langsung di sini, bisa dihapus
 
-  final themeStorage = ThemeStorage(sharedPreferences, flutterSecureStorage);
-  final themeProvider = ThemeProvider(themeStorage);
-
+  // HAPUS Provider dan ThemeProvider, langsung jalankan MyApp
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => themeProvider,
-      child: const MyApp(),
-    ),
+    const MyApp(),
   );
 }
 
@@ -62,31 +49,38 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeProvider>(
-      builder: (context, themeProvider, child) {
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: 'Aplikasi Absensi',
-          theme: AppThemes.lightTheme,
-          darkTheme: AppThemes.darkTheme,
-          themeMode: themeProvider.themeMode,
-          initialRoute: '/',
-          routes: {
-            '/': (context) => const SplashPage(),
-            '/login': (context) => const LoginPage(),
-            '/register': (context) => const RegisterPage(),
-            '/password': (context) => const PasswordPage(),
-            
-            // ***** KEMBALIKAN KE MAINPAGE YANG SEBENARNYA (jika Anda sudah yakin) *****
-            '/main': (context) => const MainPage(), 
-            
-            '/home': (context) => const HomePage(),
-            '/history': (context) => const HistoryPage(userId: 'dummy_user_id'),
-            '/kehadiran': (context) => const AttandancePage(),
-            '/profile': (context) => const ProfilePage(),
-            // '/edit_profile': (context) => const EditProfilePage(currentUser: null), // Rute ini dihapus karena menyebabkan error
-          },
-        );
+    // HAPUS builder yang berlebihan dan provider
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Aplikasi Absensi',
+      // Gunakan hanya lightTheme atau langsung definisikan ThemeData
+      theme: ThemeData( // Anda bisa definisikan tema terang di sini, atau buat file AppThemes.dart untuk lightTheme saja
+        primarySwatch: Colors.blue, // Contoh primary color
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+        // Tambahkan kustomisasi tema terang lainnya di sini
+        // Misalnya:
+        // scaffoldBackgroundColor: Colors.white,
+        // appBarTheme: AppBarTheme(color: Colors.blueAccent),
+        // ...
+      ),
+      // HAPUS darkTheme dan themeMode
+      // darkTheme: AppThemes.darkTheme,
+      // themeMode: themeProvider.themeMode,
+
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const SplashPage(),
+        '/login': (context) => const LoginPage(),
+        '/register': (context) => const RegisterPage(),
+        '/password': (context) => const PasswordPage(),
+        
+        '/main': (context) => const MainPage(), 
+        
+        // Halaman-halaman anak tidak perlu dideklarasikan terpisah jika sudah diakses via MainPage
+        // '/home': (context) => const HomePage(),
+        // '/history': (context) => const HistoryPage(userId: 'dummy_user_id'),
+        // '/kehadiran': (context) => const AttandancePage(),
+        // '/profile': (context) => const ProfilePage(),
       },
     );
   }

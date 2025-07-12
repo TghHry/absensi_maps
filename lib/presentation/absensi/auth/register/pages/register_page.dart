@@ -9,7 +9,6 @@ import 'package:absensi_maps/api/api_service.dart';
 import 'package:absensi_maps/models/training_model.dart'; // Untuk Datum (Training)
 import 'package:absensi_maps/models/batch_model.dart'; // Untuk BatchData (Batch)
 
-
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -35,7 +34,8 @@ class _RegisterPageState extends State<RegisterPage> {
   // List<Datum> _trainings = []; // Tidak lagi perlu jika hardcode
   // List<BatchData> _batches = []; // Tidak lagi perlu jika hardcode
 
-  final List<Map<String, String>> _jenisKelaminOptions = kJenisKelaminOptions; // Dari data hardcoded
+  final List<Map<String, String>> _jenisKelaminOptions =
+      kJenisKelaminOptions; // Dari data hardcoded
 
   @override
   void initState() {
@@ -58,14 +58,22 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _onRegisterButtonPressed() async {
-    if (!_formKey.currentState!.validate()) { // Memastikan semua field di form valid
+    if (!_formKey.currentState!.validate()) {
+      // Memastikan semua field di form valid
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Mohon lengkapi semua kolom yang wajib diisi dengan benar.'),
+          content: Text(
+            'Mohon lengkapi semua kolom yang wajib diisi dengan benar.',
+          ),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 4),
         ),
+      );
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login', // Pastikan rute '/main' terdaftar di main.dart Anda
+        (Route<dynamic> route) => false,
       );
       return;
     }
@@ -73,13 +81,17 @@ class _RegisterPageState extends State<RegisterPage> {
     final String name = _nameController.text.trim();
     final String email = _emailController.text.trim();
     final String password = _passwordController.text.trim();
-    
+
     // Validasi tambahan untuk dropdowns
-    if (_selectedTraining == null || _selectedBatch == null || _selectedJenisKelaminValue == null) {
+    if (_selectedTraining == null ||
+        _selectedBatch == null ||
+        _selectedJenisKelaminValue == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Mohon pilih Jurusan/Training, Batch, dan Jenis Kelamin.'),
+          content: Text(
+            'Mohon pilih Jurusan/Training, Batch, dan Jenis Kelamin.',
+          ),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 4),
         ),
@@ -89,7 +101,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
     // Ambil ID dari objek yang dipilih
     final int trainingId = _selectedTraining!.id;
-    final int batchId = _selectedBatch!.id; // Pastikan id di BatchData tidak null
+    final int batchId =
+        _selectedBatch!.id; // Pastikan id di BatchData tidak null
     final String jenisKelamin = _selectedJenisKelaminValue!;
 
     setState(() {
@@ -110,7 +123,9 @@ class _RegisterPageState extends State<RegisterPage> {
       if (!mounted) return;
 
       final String? message = apiResponse['message'] as String?;
-      final bool success = apiResponse['success'] == true || (message != null && message.toLowerCase().contains('berhasil'));
+      final bool success =
+          apiResponse['success'] == true ||
+          (message != null && message.toLowerCase().contains('berhasil'));
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -157,21 +172,21 @@ class _RegisterPageState extends State<RegisterPage> {
       backgroundColor: AppColors.loginBackgroundColor,
       body: Stack(
         children: [
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: screenHeight * 0.4,
-              decoration: BoxDecoration(
-                color: AppColors.loginAccentColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(30),
-                  topRight: Radius.circular(30),
-                ),
-              ),
+          Positioned.fill(
+            child: Image.asset(
+              'lib/assets/images/auth.png', // Path ke gambar Anda
+              fit: BoxFit.cover, // Menutupi seluruh area
             ),
           ),
+
+          // Overlay Gelap untuk membuat teks/tombol mudah dibaca
+          // Positioned.fill(
+          //   child: Container(
+          //     color: Colors.black.withOpacity(
+          //       0.6,
+          //     ), // Sesuaikan opacity sesuai kebutuhan
+          //   ),
+          // ),
           Positioned.fill(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
@@ -187,17 +202,21 @@ class _RegisterPageState extends State<RegisterPage> {
                         children: [
                           Text(
                             'Buat Akun Baru',
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                  color: AppColors.textLight,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.headlineMedium?.copyWith(
+                              color: AppColors.textLight,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Daftar untuk membuat akun Anda',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: AppColors.textLight.withOpacity(0.8),
-                                ),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleMedium?.copyWith(
+                              color: AppColors.textLight.withOpacity(0.8),
+                            ),
                           ),
                         ],
                       ),
@@ -211,7 +230,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     color: AppColors.loginCardColor,
                     elevation: 3,
-                    child: Form( // Menggunakan Form untuk validasi
+                    child: Form(
+                      // Menggunakan Form untuk validasi
                       key: _formKey,
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
@@ -245,7 +265,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                 if (value == null || value.isEmpty) {
                                   return 'Email tidak boleh kosong.';
                                 }
-                                if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                                if (!RegExp(
+                                  r'^[^@]+@[^@]+\.[^@]+',
+                                ).hasMatch(value)) {
                                   return 'Masukkan email yang valid.';
                                 }
                                 return null;
@@ -260,7 +282,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                 border: const OutlineInputBorder(),
                                 suffixIcon: IconButton(
                                   icon: Icon(
-                                    _obscureText ? Icons.visibility_off : Icons.visibility,
+                                    _obscureText
+                                        ? Icons.visibility_off
+                                        : Icons.visibility,
                                   ),
                                   onPressed: _togglePasswordVisibility,
                                 ),
@@ -287,12 +311,13 @@ class _RegisterPageState extends State<RegisterPage> {
                               isExpanded: true,
                               value: _selectedJenisKelaminValue,
                               hint: const Text('Pilih Jenis Kelamin'),
-                              items: _jenisKelaminOptions.map((option) {
-                                return DropdownMenuItem<String>(
-                                  value: option['value'],
-                                  child: Text(option['display']!),
-                                );
-                              }).toList(),
+                              items:
+                                  _jenisKelaminOptions.map((option) {
+                                    return DropdownMenuItem<String>(
+                                      value: option['value'],
+                                      child: Text(option['display']!),
+                                    );
+                                  }).toList(),
                               onChanged: (String? newValue) {
                                 setState(() {
                                   _selectedJenisKelaminValue = newValue;
@@ -308,97 +333,107 @@ class _RegisterPageState extends State<RegisterPage> {
                             const SizedBox(height: 15),
                             // --- Dropdown untuk JURUSAN/TRAINING (dari data hardcoded) ---
                             DropdownButtonFormField<Datum>(
-                                        decoration: const InputDecoration(
-                                          labelText: 'Jurusan/Training',
-                                          border: OutlineInputBorder(),
-                                          isDense: true,
-                                        ),
-                                        isExpanded: true,
-                                        value: _selectedTraining,
-                                        hint: const Text('Pilih Jurusan/Training'),
-                                        items: kTrainingOptions.map((training) {
-                                          return DropdownMenuItem<Datum>(
-                                            value: training,
-                                            child: Text(training.title ?? 'Tidak diketahui'),
-                                          );
-                                        }).toList(),
-                                        onChanged: (Datum? newValue) {
-                                          setState(() {
-                                            _selectedTraining = newValue;
-                                          });
-                                        },
-                                        validator: (value) {
-                                          if (value == null) {
-                                            return 'Jurusan wajib dipilih.';
-                                          }
-                                          return null;
-                                        },
+                              decoration: const InputDecoration(
+                                labelText: 'Jurusan/Training',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              isExpanded: true,
+                              value: _selectedTraining,
+                              hint: const Text('Pilih Jurusan/Training'),
+                              items:
+                                  kTrainingOptions.map((training) {
+                                    return DropdownMenuItem<Datum>(
+                                      value: training,
+                                      child: Text(
+                                        training.title ?? 'Tidak diketahui',
                                       ),
+                                    );
+                                  }).toList(),
+                              onChanged: (Datum? newValue) {
+                                setState(() {
+                                  _selectedTraining = newValue;
+                                });
+                              },
+                              validator: (value) {
+                                if (value == null) {
+                                  return 'Jurusan wajib dipilih.';
+                                }
+                                return null;
+                              },
+                            ),
                             const SizedBox(height: 15),
                             // --- Dropdown untuk BATCH (dari data hardcoded) ---
                             DropdownButtonFormField<BatchData>(
-                                        decoration: const InputDecoration(
-                                          labelText: 'Batch',
-                                          border: OutlineInputBorder(),
-                                          isDense: true,
-                                        ),
-                                        isExpanded: true,
-                                        value: _selectedBatch,
-                                        hint: const Text('Pilih Batch'),
-                                        items: kBatchOptions.map((batch) {
-                                          return DropdownMenuItem<BatchData>(
-                                            value: batch,
-                                            child: Text(batch.batchKe ?? 'Tidak diketahui'),
-                                          );
-                                        }).toList(),
-                                        onChanged: (BatchData? newValue) {
-                                          setState(() {
-                                            _selectedBatch = newValue;
-                                          });
-                                        },
-                                        validator: (value) {
-                                          if (value == null) {
-                                            return 'Batch wajib dipilih.';
-                                          }
-                                          return null;
-                                        },
+                              decoration: const InputDecoration(
+                                labelText: 'Batch',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              isExpanded: true,
+                              value: _selectedBatch,
+                              hint: const Text('Pilih Batch'),
+                              items:
+                                  kBatchOptions.map((batch) {
+                                    return DropdownMenuItem<BatchData>(
+                                      value: batch,
+                                      child: Text(
+                                        batch.batchKe ?? 'Tidak diketahui',
                                       ),
+                                    );
+                                  }).toList(),
+                              onChanged: (BatchData? newValue) {
+                                setState(() {
+                                  _selectedBatch = newValue;
+                                });
+                              },
+                              validator: (value) {
+                                if (value == null) {
+                                  return 'Batch wajib dipilih.';
+                                }
+                                return null;
+                              },
+                            ),
                             const SizedBox(height: 30),
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
                                 onPressed:
-                                    _isLoading ? null : _onRegisterButtonPressed,
+                                    _isLoading
+                                        ? null
+                                        : _onRegisterButtonPressed,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.loginButtonColor,
                                   foregroundColor: AppColors.textLight,
                                   padding: const EdgeInsets.symmetric(
-                                      vertical: 15),
+                                    vertical: 15,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                 ),
-                                child: _isLoading
-                                    ? const CircularProgressIndicator(
-                                        color: Colors.white,
-                                      )
-                                    : const Text(
-                                        'Daftar',
-                                        style: TextStyle(fontSize: 18),
-                                      ),
+                                child:
+                                    _isLoading
+                                        ? const CircularProgressIndicator(
+                                          color: Colors.white,
+                                        )
+                                        : const Text(
+                                          'Daftar',
+                                          style: TextStyle(fontSize: 18),
+                                        ),
                               ),
                             ),
                             const SizedBox(height: 20),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Text("Belum punya akun?"),
+                                const Text("Sudah punya akun?"),
                                 TextButton(
                                   onPressed: () {
                                     Navigator.pop(context);
                                   },
                                   child: Text(
-                                    'Login',
+                                    'masuk',
                                     style: TextStyle(
                                       color: Theme.of(context).primaryColor,
                                     ),

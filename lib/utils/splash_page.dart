@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
@@ -89,7 +88,7 @@ class _SplashPageState extends State<SplashPage> {
       height: 55,
       child: ElevatedButton.icon(
         onPressed: () {
-       Navigator.pushNamed(context,'/login');  // Tangani Masuk (Sign In)
+          Navigator.pushNamed(context, '/login'); // Tangani Masuk (Sign In)
           print('Tombol MASUK Ditekan');
         },
         style: ElevatedButton.styleFrom(
@@ -118,7 +117,7 @@ class _SplashPageState extends State<SplashPage> {
       height: 55,
       child: OutlinedButton.icon(
         onPressed: () {
-          Navigator.pushNamed(context,'/register');
+          Navigator.pushNamed(context, '/register');
           print('Tombol DAFTAR Ditekan');
         },
         style: OutlinedButton.styleFrom(
@@ -146,47 +145,4 @@ class _SplashPageState extends State<SplashPage> {
       ),
     );
   }
-
-  // Widget _buildSocialMediaIcons() {
-  //   return Row(
-  //     mainAxisAlignment: MainAxisAlignment.center,
-  //     children: [
-  //       _buildSocialIcon(FontAwesomeIcons.facebookF),
-  //       const SizedBox(width: 20),
-  //       _buildSocialIcon(FontAwesomeIcons.google),
-  //       const SizedBox(width: 20),
-  //       _buildSocialIcon(FontAwesomeIcons.xTwitter),
-  //     ],
-  //   );
-  // }
-
-  // Widget _buildSocialIcon(IconData iconData) {
-  //   return Container(
-  //     width: 50,
-  //     height: 50,
-  //     decoration: BoxDecoration(
-  //       shape: BoxShape.circle,
-  //       border: Border.all(
-  //         color: Colors.white.withOpacity(
-  //           0.5,
-  //         ), // Border lebih terang untuk ikon sosial
-  //         width: 1,
-  //       ),
-  //     ),
-  //     child: IconButton(
-  //       icon: Icon(iconData, color: Colors.white.withOpacity(0.7), size: 28),
-  //       onPressed: () {
-  //         // Tangani ketukan ikon media sosial dan tampilkan SnackBar
-  //         ScaffoldMessenger.of(context).showSnackBar(
-  //           const SnackBar(
-  //             content: Text('Ditunggu untuk versi 2.0'),
-  //             backgroundColor: Colors.blueAccent,
-  //             duration: Duration(seconds: 2),
-  //           ),
-  //         );
-  //         print('Ikon sosial ditekan: $iconData');
-  //       },
-  //     ),
-  //   );
-  // }
 }

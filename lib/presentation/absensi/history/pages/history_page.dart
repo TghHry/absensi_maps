@@ -1,6 +1,6 @@
 // File: lib/presentation/absensi/history/pages/history_page.dart
 
-import 'package:absensi_maps/models/generic_api_service.dart';
+// import 'package:absensi_maps/models/generic_api_service.dart';
 import 'package:absensi_maps/presentation/absensi/attandance/services/attandance_service.dart';
 import 'package:absensi_maps/features/theme_provider.dart';
 import 'package:absensi_maps/models/attandance_model.dart';
@@ -11,10 +11,9 @@ import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
 // Jangan lupa import GenericApiResponse jika Anda membuatnya di file terpisah
 
-
-
 class HistoryPage extends StatefulWidget {
-  final String userId; // userId ini akan dipakai untuk logika nanti (opsional, karena API hanya butuh token)
+  final String
+  userId; // userId ini akan dipakai untuk logika nanti (opsional, karena API hanya butuh token)
 
   const HistoryPage({super.key, required this.userId});
 
@@ -24,8 +23,18 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage> {
   final List<String> _months = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
   ];
   String _selectedMonth = DateFormat('MMMM', 'id_ID').format(DateTime.now());
 
@@ -50,19 +59,32 @@ class _HistoryPageState extends State<HistoryPage> {
 
   int _getMonthNumber(String monthName) {
     switch (monthName) {
-      case 'Januari': return 1;
-      case 'Februari': return 2;
-      case 'Maret': return 3;
-      case 'April': return 4;
-      case 'Mei': return 5;
-      case 'Juni': return 6;
-      case 'Juli': return 7;
-      case 'Agustus': return 8;
-      case 'September': return 9;
-      case 'Oktober': return 10;
-      case 'November': return 11;
-      case 'Desember': return 12;
-      default: return DateTime.now().month;
+      case 'Januari':
+        return 1;
+      case 'Februari':
+        return 2;
+      case 'Maret':
+        return 3;
+      case 'April':
+        return 4;
+      case 'Mei':
+        return 5;
+      case 'Juni':
+        return 6;
+      case 'Juli':
+        return 7;
+      case 'Agustus':
+        return 8;
+      case 'September':
+        return 9;
+      case 'Oktober':
+        return 10;
+      case 'November':
+        return 11;
+      case 'Desember':
+        return 12;
+      default:
+        return DateTime.now().month;
     }
   }
 
@@ -79,9 +101,15 @@ class _HistoryPageState extends State<HistoryPage> {
       final int selectedMonthNumber = _getMonthNumber(month);
 
       final DateTime startDate = DateTime(currentYear, selectedMonthNumber, 1);
-      final DateTime endDate = DateTime(currentYear, selectedMonthNumber + 1, 0);
+      final DateTime endDate = DateTime(
+        currentYear,
+        selectedMonthNumber + 1,
+        0,
+      );
 
-      final String formattedStartDate = DateFormat('yyyy-MM-dd').format(startDate);
+      final String formattedStartDate = DateFormat(
+        'yyyy-MM-dd',
+      ).format(startDate);
       final String formattedEndDate = DateFormat('yyyy-MM-dd').format(endDate);
 
       final List<Attendance> fetchedHistory = await _attendanceService
@@ -112,47 +140,46 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   // Fungsi untuk menghapus record absensi
-  Future<void> _deleteAttendanceRecord(int recordId) async {
-    debugPrint('HistoryPage: Mencoba menghapus record dengan ID: $recordId');
-    setState(() {
-      _isLoadingHistory = true; // Set loading saat menghapus
-    });
-    try {
-      // PERUBAHAN: Sekarang memanggil AttendanceService yang mengembalikan GenericApiResponse
-      final GenericApiResponse response = await _attendanceService.deleteAttendanceRecord(recordId);
-      
-      debugPrint('HistoryPage: Respon dari deleteAttendanceRecord: ${response.message}');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(response.message), // Menggunakan response.message dari model
-          backgroundColor: Colors.green,
-        ),
-      );
-      // Setelah berhasil hapus di API, refresh data di UI
-      _fetchHistoryData(_selectedMonth);
-    } catch (e) {
-      debugPrint('HistoryPage: Error deleting attendance record: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Gagal menghapus absensi: ${e.toString().replaceFirst('Exception: ', '')}',
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingHistory = false; // Sembunyikan loading
-      });
-    }
-  }
+  // Future<void> _deleteAttendanceRecord(int recordId) async {
+  //   debugPrint('HistoryPage: Mencoba menghapus record dengan ID: $recordId');
+  //   setState(() {
+  //     _isLoadingHistory = true; // Set loading saat menghapus
+  //   });
+  //   try {
+  //     // PERUBAHAN: Sekarang memanggil AttendanceService yang mengembalikan GenericApiResponse
+  //     final GenericApiResponse response = await _attendanceService.deleteAttendanceRecord(recordId);
+
+  //     debugPrint('HistoryPage: Respon dari deleteAttendanceRecord: ${response.message}');
+  //     if (!mounted) return;
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text(response.message), // Menggunakan response.message dari model
+  //         backgroundColor: Colors.green,
+  //       ),
+  //     );
+  //     // Setelah berhasil hapus di API, refresh data di UI
+  //     _fetchHistoryData(_selectedMonth);
+  //   } catch (e) {
+  //     debugPrint('HistoryPage: Error deleting attendance record: $e');
+  //     if (!mounted) return;
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text(
+  //           'Gagal menghapus absensi: ${e.toString().replaceFirst('Exception: ', '')}',
+  //         ),
+  //         backgroundColor: Colors.red,
+  //       ),
+  //     );
+  //   } finally {
+  //     if (!mounted) return;
+  //     setState(() {
+  //       _isLoadingHistory = false; // Sembunyikan loading
+  //     });
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -160,43 +187,13 @@ class _HistoryPageState extends State<HistoryPage> {
       backgroundColor: AppColors.lightBackground,
       body: Stack(
         children: [
-          // Latar belakang kuning dan biru (mirip desain gambar)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: screenHeight * 0.4,
-              color: AppColors.historyYellowShape,
+          Positioned.fill(
+            child: Image.asset(
+              'lib/assets/images/dashboard.jpg', // Path ke gambar Anda
+              fit: BoxFit.cover, // Menutupi seluruh area
             ),
           ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: ClipPath(
-              clipper: _HistoryBlueClipper(screenWidth, screenHeight * 0.4),
-              child: Container(
-                height: screenHeight * 0.4,
-                color: AppColors.historyBlueShape,
-              ),
-            ),
-          ),
-          Positioned(
-            top: screenHeight * 0.35,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: screenHeight * 0.1,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(screenWidth * 0.1),
-                  topRight: Radius.circular(screenWidth * 0.1),
-                ),
-              ),
-            ),
-          ),
+
           // Konten utama halaman (History Title, Bulan, List Absensi)
           Positioned.fill(
             child: RefreshIndicator(
@@ -215,10 +212,12 @@ class _HistoryPageState extends State<HistoryPage> {
                       padding: const EdgeInsets.symmetric(horizontal: 20.0),
                       child: Text(
                         'Riwayat Absensi',
-                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                              color: AppColors.historyBlueShape,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.displaySmall?.copyWith(
+                          color: AppColors.historyBlueShape,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -242,33 +241,38 @@ class _HistoryPageState extends State<HistoryPage> {
                             },
                             child: Container(
                               alignment: Alignment.center,
-                              margin: const EdgeInsets.symmetric(horizontal: 5.0),
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 5.0,
+                              ),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 20.0,
                                 vertical: 8.0,
                               ),
                               decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppColors.historyBlueShape
-                                    : AppColors.historyBlueShape.withOpacity(
-                                        0.5,
-                                      ),
+                                color:
+                                    isSelected
+                                        ? AppColors.historyBlueShape
+                                        : AppColors.historyBlueShape
+                                            .withOpacity(0.5),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                    color: Colors.white), // Tambahkan border agar lebih jelas
+                                  color: Colors.white,
+                                ), // Tambahkan border agar lebih jelas
                               ),
                               child: Text(
                                 month,
                                 style: Theme.of(
                                   context,
                                 ).textTheme.titleMedium?.copyWith(
-                                      color: isSelected
+                                  color:
+                                      isSelected
                                           ? AppColors.historyYellowShape
                                           : Colors.white,
-                                      fontWeight: isSelected
+                                  fontWeight:
+                                      isSelected
                                           ? FontWeight.bold
                                           : FontWeight.normal,
-                                    ),
+                                ),
                               ),
                             ),
                           );
@@ -280,108 +284,132 @@ class _HistoryPageState extends State<HistoryPage> {
                     _isLoadingHistory
                         ? const Center(child: CircularProgressIndicator())
                         : _historyError != null
-                            ? Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(20.0),
-                                  child: Text(
-                                    _historyError!,
-                                    style: const TextStyle(color: Colors.red),
-                                    textAlign: TextAlign.center,
-                                  ),
+                        ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Text(
+                              _historyError!,
+                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                        : _attendanceRecords.isEmpty
+                        ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Text(
+                              'Tidak ada riwayat absensi untuk bulan $_selectedMonth ini.',
+                              style: Theme.of(context).textTheme.titleMedium,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                        : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                          itemCount: _attendanceRecords.length,
+                          itemBuilder: (context, index) {
+                            final record = _attendanceRecords[index];
+
+                            final dayOfWeek = DateFormat(
+                              'EEEE',
+                              'id_ID',
+                            ).format(record.date);
+                            final date = DateFormat(
+                              'dd-MMM-yy',
+                            ).format(record.date);
+                            final checkInTimeDisplay = record.checkIn ?? 'N/A';
+                            final checkOutTimeDisplay =
+                                record.checkOut ?? 'Belum Check Out';
+
+                            bool isLate = false;
+                            if (record.checkIn != null &&
+                                record.checkIn!.contains(':')) {
+                              try {
+                                final parts = record.checkIn!.split(':');
+                                final hour = int.tryParse(parts[0]);
+                                final minute = int.tryParse(parts[1]);
+                                if (hour != null && minute != null) {
+                                  if (hour > 8 || (hour == 8 && minute > 0)) {
+                                    isLate = true;
+                                  }
+                                }
+                              } catch (e) {
+                                debugPrint(
+                                  'Error parsing check-in time for isLate: $e',
+                                );
+                              }
+                            }
+                            if (record.status == 'izin') {
+                              isLate = false;
+                            }
+
+                            return Dismissible(
+                              key: ValueKey(record.id),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20.0,
                                 ),
-                              )
-                            : _attendanceRecords.isEmpty
-                                ? Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(20.0),
-                                      child: Text(
-                                        'Tidak ada riwayat absensi untuk bulan $_selectedMonth ini.',
-                                        style: Theme.of(context).textTheme.titleMedium,
-                                        textAlign: TextAlign.center,
+                                color: Colors.red,
+                                child: const Icon(
+                                  Icons.delete,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              confirmDismiss: (direction) async {
+                                return await showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return AlertDialog(
+                                      title: const Text('Konfirmasi Hapus'),
+                                      content: const Text(
+                                        'Apakah Anda yakin ingin menghapus catatan absensi ini?',
                                       ),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                                    itemCount: _attendanceRecords.length,
-                                    itemBuilder: (context, index) {
-                                      final record = _attendanceRecords[index];
-
-                                      final dayOfWeek = DateFormat('EEEE', 'id_ID').format(record.date);
-                                      final date = DateFormat('dd-MMM-yy').format(record.date);
-                                      final checkInTimeDisplay = record.checkIn ?? 'N/A';
-                                      final checkOutTimeDisplay = record.checkOut ?? 'Belum Check Out';
-
-                                      bool isLate = false;
-                                      if (record.checkIn != null && record.checkIn!.contains(':')) {
-                                        try {
-                                          final parts = record.checkIn!.split(':');
-                                          final hour = int.tryParse(parts[0]);
-                                          final minute = int.tryParse(parts[1]);
-                                          if (hour != null && minute != null) {
-                                            if (hour > 8 || (hour == 8 && minute > 0)) {
-                                              isLate = true;
-                                            }
-                                          }
-                                        } catch (e) {
-                                          debugPrint('Error parsing check-in time for isLate: $e');
-                                        }
-                                      }
-                                      if (record.status == 'izin') {
-                                        isLate = false;
-                                      }
-
-                                      return Dismissible(
-                                        key: ValueKey(record.id),
-                                        direction: DismissDirection.endToStart,
-                                        background: Container(
-                                          alignment: Alignment.centerRight,
-                                          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                                          color: Colors.red,
-                                          child: const Icon(Icons.delete, color: Colors.white),
+                                      actions: <Widget>[
+                                        TextButton(
+                                          onPressed:
+                                              () => Navigator.of(
+                                                context,
+                                              ).pop(false),
+                                          child: const Text('Batal'),
                                         ),
-                                        confirmDismiss: (direction) async {
-                                          return await showDialog(
-                                            context: context,
-                                            builder: (BuildContext context) {
-                                              return AlertDialog(
-                                                title: const Text('Konfirmasi Hapus'),
-                                                content: const Text('Apakah Anda yakin ingin menghapus catatan absensi ini?'),
-                                                actions: <Widget>[
-                                                  TextButton(
-                                                    onPressed: () => Navigator.of(context).pop(false),
-                                                    child: const Text('Batal'),
-                                                  ),
-                                                  ElevatedButton(
-                                                    onPressed: () => Navigator.of(context).pop(true),
-                                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                                    child: const Text('Hapus'),
-                                                  ),
-                                                ],
-                                              );
-                                            },
-                                          );
-                                        },
-                                        // --- PERBAIKAN PENTING DI SINI ---
-                                        onDismissed: (direction) {
-                                          // Panggil metode untuk menghapus record absensi
-                                          _deleteAttendanceRecord(record.id);
-                                        },
-                                        // ----------------------------------
-                                        child: HistoryAttendanceCard(
-                                          dayOfWeek: dayOfWeek,
-                                          date: date,
-                                          checkInTime: checkInTimeDisplay,
-                                          checkOutTime: checkOutTimeDisplay,
-                                          isLate: isLate,
-                                          status: record.status,
-                                          reason: record.reason,
+                                        ElevatedButton(
+                                          onPressed:
+                                              () => Navigator.of(
+                                                context,
+                                              ).pop(true),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                          ),
+                                          child: const Text('Hapus'),
                                         ),
-                                      );
-                                    },
-                                  ),
+                                      ],
+                                    );
+                                  },
+                                );
+                              },
+                              // --- PERBAIKAN PENTING DI SINI ---
+                              onDismissed: (direction) {
+                                // Panggil metode untuk menghapus record absensi
+                                // _deleteAttendanceRecord(record.id);
+                              },
+                              // ----------------------------------
+                              child: HistoryAttendanceCard(
+                                dayOfWeek: dayOfWeek,
+                                date: date,
+                                checkInTime: checkInTimeDisplay,
+                                checkOutTime: checkOutTimeDisplay,
+                                isLate: isLate,
+                                status: record.status,
+                                reason: record.reason,
+                              ),
+                            );
+                          },
+                        ),
                     const SizedBox(height: 100),
                   ],
                 ),
@@ -389,21 +417,19 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           ),
           // Tombol tema (kanan atas)
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 10,
-            right: 10,
-            child: IconButton(
-              icon: Icon(
-                themeProvider.themeMode == ThemeMode.dark
-                    ? Icons.light_mode
-                    : Icons.dark_mode,
-                color: Colors.white,
-              ),
-              onPressed: () {
-                themeProvider.toggleTheme();
-              },
-            ),
-          ),
+          // Positioned(
+          //   top: MediaQuery.of(context).padding.top + 10,
+          //   right: 10,
+          //   child: IconButton(
+          //     icon: Icon(
+
+          //       color: Colors.white,
+          //     ),
+          //     onPressed: () {
+          //       themeProvider.toggleTheme();
+          //     },
+          //   ),
+          // ),
         ],
       ),
     );
@@ -435,9 +461,9 @@ class _HistoryPageState extends State<HistoryPage> {
                 Text(
                   value,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textDark,
-                      ),
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textDark,
+                  ),
                 ),
               ],
             ),
@@ -508,8 +534,8 @@ class HistoryAttendanceCard extends StatelessWidget {
                     Text(
                       dayOfWeek,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
                       date,
@@ -525,24 +551,20 @@ class HistoryAttendanceCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(
-                      0.2,
-                    ),
+                    color: statusColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: Text(
                     statusText,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: statusColor,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      color: statusColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
             ),
-            if (status == 'izin' &&
-                reason != null &&
-                reason!.isNotEmpty)
+            if (status == 'izin' && reason != null && reason!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
                 child: Align(
@@ -550,15 +572,12 @@ class HistoryAttendanceCard extends StatelessWidget {
                   child: Text(
                     'Alasan Izin: $reason',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontStyle: FontStyle.italic,
-                        ),
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ),
               ),
-            const Divider(
-              height: 20,
-              thickness: 1,
-            ),
+            const Divider(height: 20, thickness: 1),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -574,10 +593,11 @@ class HistoryAttendanceCard extends StatelessWidget {
                     Text(
                       checkInTime,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: isLate && status == 'masuk'
+                        color:
+                            isLate && status == 'masuk'
                                 ? AppColors.historyLateRed
                                 : null,
-                          ),
+                      ),
                     ),
                   ],
                 ),

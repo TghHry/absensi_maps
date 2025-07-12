@@ -4,11 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
-
-import 'package:absensi_maps/api/api_service.dart';
-import 'package:absensi_maps/models/user_model.dart';
+import 'package:absensi_maps/api/api_service.dart'; // PASTIKAN IMPORT INI BENAR
 import 'package:absensi_maps/models/login_response_model.dart';
 import 'package:absensi_maps/utils/app_colors.dart';
+import 'package:absensi_maps/models/session_manager.dart'; // <<< TAMBAHKAN IMPORT INI
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -25,7 +24,10 @@ class _LoginPageState extends State<LoginPage> {
   bool _rememberMe = false;
   bool _isLoading = false;
 
-  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  // Ganti _secureStorage jika SessionManager akan mengurus semua
+  // final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  final SessionManager _sessionManager =
+      SessionManager(); // <<< Inisialisasi SessionManager
 
   @override
   void initState() {
@@ -90,24 +92,53 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       debugPrint('LoginPage: Memulai panggilan ApiService.login.');
-      final Map<String, dynamic> apiResponse = await ApiService.login(email, password);
-      debugPrint('LoginPage: Panggilan ApiService.login selesai. Respon: $apiResponse');
-      
+      // PASTIKAN PANGGILAN API INI SESUAI DENGAN API_SERVICE.DART
+      final Map<String, dynamic> apiResponse = await ApiService.login(
+        email,
+        password,
+      );
+      debugPrint(
+        'LoginPage: Panggilan ApiService.login selesai. Respon: $apiResponse',
+      );
+
       final LoginResponse response = LoginResponse.fromJson(apiResponse);
       debugPrint('LoginPage: Respon API berhasil diparsing ke LoginResponse.');
 
       if (!mounted) {
-        debugPrint('LoginPage: Widget tidak mounted setelah login API, menghentikan eksekusi.');
+        debugPrint(
+          'LoginPage: Widget tidak mounted setelah login API, menghentikan eksekusi.',
+        );
         return;
       }
 
       if (response.token != null && response.user != null) {
-        debugPrint('LoginPage: Token dan User ditemukan. Memulai _saveLoginData.');
-        await _saveLoginData(response.token!, response.user!);
-        debugPrint('LoginPage: _saveLoginData selesai.');
-        
+        debugPrint(
+          'LoginPage: Token dan User ditemukan. Memulai _saveLoginData.',
+        );
+        // <<< PERBAIKAN: Gunakan SessionManager untuk menyimpan token dan user >>>
+        await _sessionManager.saveToken(response.token!);
+        await _sessionManager.saveUser(response.user!);
+        // PENTING: Juga simpan remembered_email via SharedPreferences secara terpisah
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        if (_rememberMe) {
+          await prefs.setString('remembered_email', response.user!.email);
+          debugPrint(
+            'LoginPage:_saveLoginData: Email diingat: ${response.user!.email}',
+          );
+        } else {
+          await prefs.remove('remembered_email');
+          debugPrint(
+            'LoginPage:_saveLoginData: Email tidak diingat, data dihapus.',
+          );
+        }
+        debugPrint(
+          'LoginPage: _saveLoginData selesai.',
+        ); // Ini log dari _saveLoginData yang sudah dihilangkan
+
         if (!mounted) {
-          debugPrint('LoginPage: Widget tidak mounted setelah _saveLoginData, menghentikan eksekusi.');
+          debugPrint(
+            'LoginPage: Widget tidak mounted setelah _saveLoginData, menghentikan eksekusi.',
+          );
           return;
         }
 
@@ -120,21 +151,29 @@ class _LoginPageState extends State<LoginPage> {
         debugPrint('LoginPage: SnackBar sukses ditampilkan.');
 
         if (!mounted) {
-          debugPrint('LoginPage: Widget tidak mounted sebelum navigasi, menghentikan eksekusi.');
+          debugPrint(
+            'LoginPage: Widget tidak mounted sebelum navigasi, menghentikan eksekusi.',
+          );
           return;
         }
 
-        debugPrint('LoginPage: MENCoba memanggil Navigator.pushNamedAndRemoveUntil ke /main.');
+        debugPrint(
+          'LoginPage: Mencoba memanggil Navigator.pushNamedAndRemoveUntil ke /main.',
+        );
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/main',
+          '/main', // Pastikan rute '/main' terdaftar di main.dart Anda
           (Route<dynamic> route) => false,
         );
-        debugPrint('LoginPage: Navigator.pushNamedAndRemoveUntil selesai dieksekusi.');
+        debugPrint(
+          'LoginPage: Navigator.pushNamedAndRemoveUntil selesai dieksekusi.',
+        );
       } else {
         debugPrint('LoginPage: Login gagal (token atau user null).');
         if (!mounted) {
-          debugPrint('LoginPage: Widget tidak mounted saat menampilkan error login (gagal).');
+          debugPrint(
+            'LoginPage: Widget tidak mounted saat menampilkan error login (gagal).',
+          );
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
@@ -150,7 +189,9 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Login gagal: ${e.toString().contains('Failed host lookup') ? 'Tidak ada koneksi internet.' : e.toString()}'),
+          content: Text(
+            'Login gagal: ${e.toString().contains('Failed host lookup') ? 'Tidak ada koneksi internet.' : e.toString().replaceFirst('Exception: ', '')}',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -161,41 +202,15 @@ class _LoginPageState extends State<LoginPage> {
         });
         debugPrint('LoginPage: Loading state diset false.');
       } else {
-        debugPrint('LoginPage: Widget tidak mounted, tidak bisa set loading state.');
+        debugPrint(
+          'LoginPage: Widget tidak mounted, tidak bisa set loading state.',
+        );
       }
     }
   }
 
-  /// Menyimpan token autentikasi ke FlutterSecureStorage dan data pengguna ke SharedPreferences.
-  Future<void> _saveLoginData(String token, User user) async {
-    debugPrint('LoginPage:_saveLoginData: Memulai penyimpanan data.');
-    try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      debugPrint('LoginPage:_saveLoginData: SharedPreferences instance didapat.');
-
-      await _secureStorage.write(key: 'auth_token', value: token);
-      debugPrint('LoginPage:_saveLoginData: Token disimpan dengan aman.');
-
-      await prefs.setInt('user_id', user.id);
-      debugPrint('LoginPage:_saveLoginData: user_id disimpan.');
-      await prefs.setString('user_name', user.name);
-      debugPrint('LoginPage:_saveLoginData: user_name disimpan.');
-      await prefs.setString('user_email', user.email);
-      debugPrint('LoginPage:_saveLoginData: user_email disimpan.');
-
-      if (_rememberMe) {
-        await prefs.setString('remembered_email', user.email);
-        debugPrint('LoginPage:_saveLoginData: Email diingat: ${user.email}');
-      } else {
-        await prefs.remove('remembered_email');
-        debugPrint('LoginPage:_saveLoginData: Email tidak diingat, data dihapus.');
-      }
-      debugPrint('LoginPage:_saveLoginData: Penyimpanan data selesai.');
-    } catch (e) {
-      debugPrint('LoginPage:_saveLoginData: ERROR saat menyimpan data: $e');
-      rethrow;
-    }
-  }
+  // Hapus _saveLoginData karena diganti oleh SessionManager
+  // Future<void> _saveLoginData(String token, User user) async { ... }
 
   /// Fungsi yang dipanggil saat tombol Lupa Password ditekan.
   void _onForgotPasswordPressed() {
@@ -208,7 +223,7 @@ class _LoginPageState extends State<LoginPage> {
     Navigator.pushNamed(
       context,
       '/password',
-    );
+    ); // Pastikan rute '/password' terdaftar
   }
 
   /// Fungsi yang dipanggil saat tombol Daftar ditekan.
@@ -222,34 +237,32 @@ class _LoginPageState extends State<LoginPage> {
     Navigator.pushNamed(
       context,
       '/register',
-    );
+    ); // Pastikan rute '/register' terdaftar
   }
 
   @override
   Widget build(BuildContext context) {
     debugPrint('LoginPage: build terpanggil.');
     final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
+    // final screenWidth = MediaQuery.of(context).size.width; // Tidak digunakan di sini, bisa dihapus jika tidak dipakai
 
     return Scaffold(
       backgroundColor: AppColors.loginBackgroundColor,
       body: Stack(
         children: [
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: screenHeight * 0.4,
-              decoration: BoxDecoration(
-                color: AppColors.loginAccentColor,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(screenWidth * 0.2),
-                  topRight: Radius.circular(screenWidth * 0.2),
-                ),
-              ),
+          Positioned.fill(
+            child: Image.asset(
+              'lib/assets/images/auth.png', // Pastikan path gambar benar
+              fit: BoxFit.cover,
             ),
           ),
+
+          // Overlay Gelap untuk membuat teks/tombol mudah dibaca
+          // Positioned.fill(
+          //   child: Container(
+          //     color: Colors.black.withOpacity(0.6),
+          //   ),
+          // ),
           Positioned.fill(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
@@ -265,17 +278,21 @@ class _LoginPageState extends State<LoginPage> {
                         children: [
                           Text(
                             'Selamat Datang Kembali',
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                  color: AppColors.textLight,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.headlineMedium?.copyWith(
+                              color: AppColors.textLight,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Silakan masuk ke akun Anda',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: AppColors.textLight.withOpacity(0.8),
-                                ),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleMedium?.copyWith(
+                              color: AppColors.textLight.withOpacity(0.8),
+                            ),
                           ),
                         ],
                       ),
@@ -313,7 +330,9 @@ class _LoginPageState extends State<LoginPage> {
                               prefixIcon: const Icon(Icons.lock),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _obscureText ? Icons.visibility_off : Icons.visibility,
+                                  _obscureText
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
                                 ),
                                 onPressed: _togglePasswordVisibility,
                               ),
@@ -351,23 +370,27 @@ class _LoginPageState extends State<LoginPage> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _onLoginButtonPressed,
+                              onPressed:
+                                  _isLoading ? null : _onLoginButtonPressed,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.loginButtonColor,
                                 foregroundColor: AppColors.textLight,
-                                padding: const EdgeInsets.symmetric(vertical: 15),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 15,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child: _isLoading
-                                  ? const CircularProgressIndicator(
-                                      color: Colors.white,
-                                    )
-                                  : const Text(
-                                      'Masuk',
-                                      style: TextStyle(fontSize: 18),
-                                    ),
+                              child:
+                                  _isLoading
+                                      ? const CircularProgressIndicator(
+                                        color: Colors.white,
+                                      )
+                                      : const Text(
+                                        'Masuk',
+                                        style: TextStyle(fontSize: 18),
+                                      ),
                             ),
                           ),
                           const SizedBox(height: 20),
@@ -378,7 +401,7 @@ class _LoginPageState extends State<LoginPage> {
                               TextButton(
                                 onPressed: _onSignUpPressed,
                                 child: Text(
-                                  'Daftar Sekarang',
+                                  'Daftar di sini',
                                   style: TextStyle(
                                     color: Theme.of(context).primaryColor,
                                   ),

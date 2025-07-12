@@ -3,12 +3,7 @@
 import 'dart:convert';
 import 'package:absensi_maps/models/batch_model.dart'; // Untuk BatchData
 import 'package:absensi_maps/models/training_model.dart'; // Untuk Datum
-
-// Helper untuk parse dari JSON string
-ProfileResponse profileResponseFromJson(String str) => ProfileResponse.fromJson(json.decode(str));
-
-// Helper untuk konversi ke JSON string
-String profileResponseToJson(ProfileResponse data) => json.encode(data.toJson());
+import 'package:absensi_maps/api/api_service.dart'; // <<< Pastikan ini diimport untuk akses ApiService.baseUrl
 
 class ProfileResponse {
     final String message;
@@ -35,24 +30,47 @@ class ProfileUser {
     final String name;
     final String email;
     final DateTime? emailVerifiedAt;
-    final DateTime? createdAt;
-    final DateTime? updatedAt;
+    final DateTime? createdAt; // Tetap nullable
+    final DateTime? updatedAt; // Tetap nullable
     final int? batchId;
     final int? trainingId;
     final String? jenisKelamin;
-    final String? profilePhoto;
+    final String? profilePhoto; // Ini adalah path relatif dari API
     final String? onesignalPlayerId;
-    final BatchData? batch; // Menggunakan BatchData dari batch_model.dart
-    final Datum? training; // Menggunakan Datum dari training_model.dart
+    final BatchData? batch;
+    final Datum? training;
 
-    // Properti tambahan yang di-flatten dari batch dan training untuk kemudahan akses di UI
+    // Properti tambahan yang di-flatten dari batch dan training
     String? get batchKe => batch?.batchKe;
     DateTime? get batchStartDate => batch?.startDate;
     DateTime? get batchEndDate => batch?.endDate;
     String? get trainingTitle => training?.title;
     String? get trainingDescription => training?.description;
-    // Tambahan untuk training jika ada di API, contoh:
-    int? get trainingParticipantCount => training?.pivot?.trainingId != null ? 1 : null; // Ini contoh, sesuaikan jika ada participant_count di API
+    int? get trainingParticipantCount => training?.pivot?.trainingId != null ? 1 : null;
+
+    // <<< PERBAIKAN PENTING DI SINI: SESUAIKAN URL FOTO DENGAN HASIL POSTMAN >>>
+    String? get fullProfilePhotoUrl {
+        if (profilePhoto == null || profilePhoto!.isEmpty) {
+            return null; // Jika tidak ada foto atau path kosong, kembalikan null
+        }
+        
+        // Cek apakah profilePhoto sudah absolute URL (dimulai dengan http/https)
+        if (profilePhoto!.startsWith('http://') || profilePhoto!.startsWith('https://')) {
+            return profilePhoto; // Jika sudah URL lengkap dari API, langsung pakai
+        }
+        
+        // Berdasarkan hasil Postman Anda, URL yang berhasil diakses adalah
+        // https://appabsensi.mobileprojp.com/public/profile_photo/budianduks_1752381689.png
+        // Ini berarti kita perlu menggabungkan ApiService.baseUrl dengan '/public/' dan path foto.
+        const String publicStorageSegment = '/public/'; // Ini adalah segmen yang kurang
+        
+        // Pastikan profilePhoto tidak dimulai dengan '/' jika publicStorageSegment sudah punya '/'
+        String cleanedPhotoPath = profilePhoto!.startsWith('/') ? profilePhoto!.substring(1) : profilePhoto!;
+        
+        return ApiService.baseUrl + publicStorageSegment + cleanedPhotoPath;
+    }
+    // <<< AKHIR PERBAAIKAN GETTER >>>
+
 
     ProfileUser({
         required this.id,
@@ -70,21 +88,32 @@ class ProfileUser {
         this.training,
     });
 
-    factory ProfileUser.fromJson(Map<String, dynamic> json) => ProfileUser(
-        id: json["id"] as int,
-        name: json["name"] as String,
-        email: json["email"] as String,
-        emailVerifiedAt: json["email_verified_at"] == null ? null : DateTime.parse(json["email_verified_at"] as String),
-        createdAt: json["created_at"] == null ? null : DateTime.parse(json["created_at"] as String),
-        updatedAt: json["updated_at"] == null ? null : DateTime.parse(json["updated_at"] as String),
-        batchId: json["batch_id"] == null ? null : int.tryParse(json["batch_id"].toString()),
-        trainingId: json["training_id"] == null ? null : int.tryParse(json["training_id"].toString()),
-        jenisKelamin: json["jenis_kelamin"] as String?,
-        profilePhoto: json["profile_photo"] as String?,
-        onesignalPlayerId: json["onesignal_player_id"] as String?,
-        batch: json["batch"] == null ? null : BatchData.fromJson(json["batch"] as Map<String, dynamic>),
-        training: json["training"] == null ? null : Datum.fromJson(json["training"] as Map<String, dynamic>),
-    );
+    factory ProfileUser.fromJson(Map<String, dynamic> json) {
+        DateTime? _tryParseDateTime(dynamic value) {
+            if (value == null) return null;
+            try {
+                return DateTime.parse(value.toString());
+            } catch (e) {
+                return null;
+            }
+        }
+
+        return ProfileUser(
+            id: json["id"] as int,
+            name: json["name"] as String,
+            email: json["email"] as String,
+            emailVerifiedAt: _tryParseDateTime(json["email_verified_at"]),
+            createdAt: _tryParseDateTime(json["created_at"]),
+            updatedAt: _tryParseDateTime(json["updated_at"]),
+            batchId: json["batch_id"] == null ? null : int.tryParse(json["batch_id"].toString()),
+            trainingId: json["training_id"] == null ? null : int.tryParse(json["training_id"].toString()),
+            jenisKelamin: json["jenis_kelamin"] as String?,
+            profilePhoto: json["profile_photo"] as String?, // Ini adalah path relatif dari API
+            onesignalPlayerId: json["onesignal_player_id"] as String?,
+            batch: json["batch"] == null ? null : BatchData.fromJson(json["batch"] as Map<String, dynamic>),
+            training: json["training"] == null ? null : Datum.fromJson(json["training"] as Map<String, dynamic>),
+        );
+    }
 
     Map<String, dynamic> toJson() => {
         "id": id,
@@ -96,7 +125,7 @@ class ProfileUser {
         "batch_id": batchId,
         "training_id": trainingId,
         "jenis_kelamin": jenisKelamin,
-        "profile_photo": profilePhoto,
+        "profile_photo": profilePhoto, // Kirim path relatif saat toJson
         "onesignal_player_id": onesignalPlayerId,
         "batch": batch?.toJson(),
         "training": training?.toJson(),

@@ -1,97 +1,61 @@
+// lib/presentation/absensi/attandance/services/attandance_service.dart
+
+import 'package:absensi_maps/models/session_manager.dart'; // Pastikan path ini benar
+// Hapus import yang salah ini:
+// import 'package:absensi_maps/presentation/absensi/attandance/services/attandance_api_service.dart';
+// Ganti dengan import model AttendanceApiResponse yang benar:
+// import 'package:absensi_maps/models/attendance_api_response.dart'; // <<< PERBAIKAN: IMPORT INI
+import 'package:absensi_maps/presentation/absensi/attandance/services/attandance_api_service.dart';
+
+import 'package:flutter/foundation.dart';
+import 'package:absensi_maps/api/api_service.dart';
 import 'package:absensi_maps/models/attandance_model.dart';
-import 'package:absensi_maps/models/generic_api_service.dart';
-import 'package:flutter/foundation.dart'; // For debugPrint
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Untuk mendapatkan token
-import 'package:absensi_maps/api/api_service.dart'; // Import ApiService Anda yang sudah ada
-// Import model respons generik jika Anda membuatnya di file terpisah
 
-
-// Kelas pembungkus untuk respons API yang konsisten (sebelumnya sudah ada)
-class AttendanceApiResponse {
-  final String message;
-  final Attendance? data; // Data absensi tunggal, bisa null jika tidak ada absensi hari ini
-
-  AttendanceApiResponse({required this.message, this.data});
-
-  factory AttendanceApiResponse.fromJson(Map<String, dynamic> json) {
-    return AttendanceApiResponse(
-      // Perbaikan: Pastikan pesan default lebih informatif jika null
-      message: json['message'] as String? ?? 'Respons sukses tanpa pesan.', 
-      data: json['data'] == null
-          ? null
-          : Attendance.fromJson(json['data'] as Map<String, dynamic>),
-    );
-  }
-}
-
-// Kelas pembungkus untuk respons History API (sebelumnya sudah ada)
-class AttendanceHistoryResponse {
-  final String message;
-  final List<Attendance> data; // Daftar absensi
-
-  AttendanceHistoryResponse({required this.message, required this.data});
-
-  factory AttendanceHistoryResponse.fromJson(Map<String, dynamic> json) {
-    return AttendanceHistoryResponse(
-      // Perbaikan: Pastikan pesan default lebih informatif jika null
-      message: json['message'] as String? ?? 'Daftar riwayat berhasil dimuat.', 
-      data: (json['data'] as List<dynamic>?)
-            ?.map((item) => Attendance.fromJson(item as Map<String, dynamic>))
-            .toList() ??
-          [], // Pastikan list tidak null
-    );
-  }
-}
 
 class AttendanceService {
-  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  final SessionManager _sessionManager = SessionManager();
 
-  // Helper untuk mendapatkan token dari secure storage
-  Future<String> _getToken() async {
-    final token = await _secureStorage.read(key: ApiService.tokenKey);
-    if (token == null) {
-      throw Exception('Token otentikasi tidak ditemukan. Harap login ulang.');
-    }
-    return token;
-  }
-
-  /// Mengambil status absensi hari ini.
+  /// Mengambil status absensi hari ini dari API.
   Future<AttendanceApiResponse> getTodayAttendance() async {
     try {
-      final token = await _getToken();
-      final Map<String, dynamic> responseData = await ApiService.getTodayAttendance(token);
-      debugPrint('AttendanceService: Response from ApiService.getTodayAttendance: $responseData');
-      
-      // Logika khusus untuk "belum absen"
-      if (responseData['message'] != null && responseData['data'] == null && responseData['message'].contains('belum absen')) {
-        return AttendanceApiResponse(message: responseData['message'], data: null);
+      final String? token = await _sessionManager.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Token otentikasi tidak ditemukan. Mohon login kembali.');
       }
+      // ApiService.getTodayAttendance sekarang mengembalikan Map<String, dynamic>
+      // yang sudah menangani kasus 404 sebagai data: null
+      final Map<String, dynamic> responseData = await ApiService.getTodayAttendance(token);
+      debugPrint('AttendanceService: Raw response from ApiService.getTodayAttendance: $responseData');
 
+      // Langsung parsing ke AttendanceApiResponse
       return AttendanceApiResponse.fromJson(responseData);
     } catch (e) {
       debugPrint('AttendanceService: Error in getTodayAttendance service: $e');
-      rethrow;
+      rethrow; // Lempar kembali error ke lapisan UI
     }
   }
 
   /// Melakukan check-in.
-  // Perbaikan: Hapus parameter `status` karena sudah hardcoded di ApiService
   Future<AttendanceApiResponse> checkIn({
-    // required String status, // <-- DIHAPUS
-    String? alasanIzin, // Jika ini hanya untuk status izin, pertimbangkan apakah tetap diperlukan di sini
     required double latitude,
     required double longitude,
     required String checkInAddress,
+    String? alasanIzin, // Jika catatan digunakan sebagai alasan izin
   }) async {
     try {
-      final token = await _getToken();
+      final String? token = await _sessionManager.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Token otentikasi tidak ditemukan. Mohon login kembali.');
+      }
+      // ApiService.checkIn sekarang membutuhkan parameter status
       final Map<String, dynamic> responseData = await ApiService.checkIn(
         token: token,
         latitude: latitude,
         longitude: longitude,
         address: checkInAddress,
+        status: 'masuk', // Status default untuk check-in
       );
-      debugPrint('AttendanceService: Response from ApiService.checkIn: $responseData');
+      debugPrint('AttendanceService: Raw response from ApiService.checkIn: $responseData');
       return AttendanceApiResponse.fromJson(responseData);
     } catch (e) {
       debugPrint('AttendanceService: Error in checkIn service: $e');
@@ -106,14 +70,17 @@ class AttendanceService {
     required String checkOutAddress,
   }) async {
     try {
-      final token = await _getToken();
+      final String? token = await _sessionManager.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Token otentikasi tidak ditemukan. Mohon login kembali.');
+      }
       final Map<String, dynamic> responseData = await ApiService.checkOut(
         token: token,
         latitude: latitude,
         longitude: longitude,
         address: checkOutAddress,
       );
-      debugPrint('AttendanceService: Response from ApiService.checkOut: $responseData');
+      debugPrint('AttendanceService: Raw response from ApiService.checkOut: $responseData');
       return AttendanceApiResponse.fromJson(responseData);
     } catch (e) {
       debugPrint('AttendanceService: Error in checkOut service: $e');
@@ -121,19 +88,22 @@ class AttendanceService {
     }
   }
 
-  /// Mengirim absensi izin.
+  /// Mengajukan izin.
   Future<AttendanceApiResponse> submitIzin({
     required String date,
     required String reason,
   }) async {
     try {
-      final token = await _getToken();
+      final String? token = await _sessionManager.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Token otentikasi tidak ditemukan. Mohon login kembali.');
+      }
       final Map<String, dynamic> responseData = await ApiService.submitIzin(
         token: token,
         date: date,
         reason: reason,
       );
-      debugPrint('AttendanceService: Response from ApiService.submitIzin: $responseData');
+      debugPrint('AttendanceService: Raw response from ApiService.submitIzin: $responseData');
       return AttendanceApiResponse.fromJson(responseData);
     } catch (e) {
       debugPrint('AttendanceService: Error in submitIzin service: $e');
@@ -141,16 +111,21 @@ class AttendanceService {
     }
   }
 
-  /// Mendapatkan riwayat absensi berdasarkan rentang tanggal.
-  Future<List<Attendance>> getAttendanceHistory(String startDate, String endDate) async {
+  /// Mengambil riwayat absensi.
+  Future<List<Attendance>> getAttendanceHistory(
+      String startDate, String endDate) async {
     try {
-      final token = await _getToken();
-      final Map<String, dynamic> responseData = await ApiService.getHistory(token,
-        startDate: startDate,
-        endDate: endDate,
-      );
-      debugPrint('AttendanceService: Response from ApiService.getHistory: $responseData');
-      return AttendanceHistoryResponse.fromJson(responseData).data;
+      final String? token = await _sessionManager.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Token otentikasi tidak ditemukan. Mohon login kembali.');
+      }
+      final Map<String, dynamic> responseData =
+          await ApiService.getHistory(token, startDate: startDate, endDate: endDate);
+      debugPrint('AttendanceService: Raw response from ApiService.getHistory: $responseData');
+
+      // Asumsi API mengembalikan List<Map<String, dynamic>> di bawah key 'data'
+      final List<dynamic> historyListJson = responseData['data'] as List<dynamic>? ?? [];
+      return historyListJson.map((json) => Attendance.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {
       debugPrint('AttendanceService: Error in getAttendanceHistory service: $e');
       rethrow;
@@ -158,17 +133,19 @@ class AttendanceService {
   }
 
   /// Menghapus record absensi.
-  // Perbaikan: Mengembalikan GenericApiResponse untuk konsistensi tipe
-  Future<GenericApiResponse> deleteAttendanceRecord(int recordId) async {
+  // Tetap mengembalikan AttendanceApiResponse sesuai permintaan Anda
+  Future<AttendanceApiResponse> deleteAttendanceRecord(int recordId) async {
     try {
-      final token = await _getToken();
+      final String? token = await _sessionManager.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Token otentikasi tidak ditemukan. Mohon login kembali.');
+      }
       final Map<String, dynamic> responseData = await ApiService.deleteAttendance(
         token: token,
         id: recordId,
       );
-      debugPrint('AttendanceService: Response from ApiService.deleteAttendance: $responseData');
-      // Perbaikan: Mengembalikan model GenericApiResponse
-      return GenericApiResponse.fromJson(responseData); 
+      debugPrint('AttendanceService: Raw response from ApiService.deleteAttendance: $responseData');
+      return AttendanceApiResponse.fromJson(responseData); // Mengembalikan AttendanceApiResponse
     } catch (e) {
       debugPrint('AttendanceService: Error in deleteAttendanceRecord service: $e');
       rethrow;
